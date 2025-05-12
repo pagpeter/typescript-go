@@ -439,7 +439,7 @@ func (l *LanguageService) mergeReferences(program *compiler.Program, referencesT
 		} else {
 			sourceFile = ast.GetSourceFileOfNode(entry.node)
 		}
-		return slices.Index(program.SourceFiles(), sourceFile)
+		return slices.Index(program.GetSourceFiles(), sourceFile)
 	}
 
 	for _, references := range referencesToMerge {

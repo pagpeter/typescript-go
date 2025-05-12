@@ -438,7 +438,7 @@ func getSourceFilesToEmit(host printer.EmitHost, targetSourceFile *ast.SourceFil
 	if targetSourceFile != nil {
 		sourceFiles = []*ast.SourceFile{targetSourceFile}
 	} else {
-		sourceFiles = host.SourceFiles()
+		sourceFiles = host.GetSourceFiles()
 	}
 	return core.Filter(sourceFiles, func(sourceFile *ast.SourceFile) bool {
 		return sourceFileMayBeEmitted(sourceFile, host, forceDtsEmit)

@@ -71,7 +71,7 @@ func createReportErrorSummary(sys System, options *core.CompilerOptions) func(di
 func reportStatistics(sys System, program *compiler.Program, result compileAndEmitResult, memStats *runtime.MemStats) {
 	var stats table
 
-	stats.add("Files", len(program.SourceFiles()))
+	stats.add("Files", len(program.GetSourceFiles()))
 	stats.add("Lines", program.LineCount())
 	stats.add("Identifiers", program.IdentifierCount())
 	stats.add("Symbols", program.SymbolCount())
@@ -477,7 +477,7 @@ func formatDuration(d time.Duration) string {
 
 func identifierCount(p *compiler.Program) int {
 	count := 0
-	for _, file := range p.SourceFiles() {
+	for _, file := range p.GetSourceFiles() {
 		count += file.IdentifierCount
 	}
 	return count

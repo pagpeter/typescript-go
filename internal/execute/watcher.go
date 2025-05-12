@@ -69,7 +69,7 @@ func (w *watcher) hasBeenModified(program *compiler.Program) bool {
 	// checks watcher's snapshot against program file modified times
 	currState := map[string]time.Time{}
 	filesModified := w.configModified
-	for _, sourceFile := range program.SourceFiles() {
+	for _, sourceFile := range program.GetSourceFiles() {
 		fileName := sourceFile.FileName()
 		s := w.sys.FS().Stat(fileName)
 		if s == nil {

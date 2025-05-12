@@ -213,7 +213,7 @@ func (ch *Checker) getAlternativeContainingModules(symbol *ast.Symbol, enclosing
 		return *links.extendedContainers
 	}
 	// No results from files already being imported by this file - expand search (expensive, but not location-specific, so cached)
-	otherFiles := ch.program.SourceFiles()
+	otherFiles := ch.program.GetSourceFiles()
 	for _, file := range otherFiles {
 		if !ast.IsExternalModule(file) {
 			continue
