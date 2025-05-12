@@ -291,7 +291,7 @@ type compileAndEmitResult struct {
 
 func emitFilesAndReportErrors(sys System, program *compiler.Program, reportDiagnostic diagnosticReporter) (result compileAndEmitResult) {
 	ctx := context.Background()
-	options := program.Options()
+	options := program.GetCompilerOptions()
 	allDiagnostics := slices.Clip(program.GetConfigFileParsingDiagnostics())
 	configFileParsingDiagnosticsLength := len(allDiagnostics)
 
@@ -342,7 +342,7 @@ func emitFilesAndReportErrors(sys System, program *compiler.Program, reportDiagn
 		listFiles(sys, program)
 	}
 
-	createReportErrorSummary(sys, program.Options())(allDiagnostics)
+	createReportErrorSummary(sys, program.GetCompilerOptions())(allDiagnostics)
 	result.diagnostics = allDiagnostics
 	result.emitResult = emitResult
 	result.status = ExitStatusSuccess
@@ -369,7 +369,7 @@ func showConfig(sys System, config *core.CompilerOptions) {
 }
 
 func listFiles(sys System, program *compiler.Program) {
-	options := program.Options()
+	options := program.GetCompilerOptions()
 	// !!! explainFiles
 	if options.ListFiles.IsTrue() || options.ListFilesOnly.IsTrue() {
 		for _, file := range program.GetSourceFiles() {

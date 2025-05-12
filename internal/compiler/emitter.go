@@ -51,7 +51,7 @@ func (e *emitter) emit() {
 
 func (e *emitter) getDeclarationTransformers(emitContext *printer.EmitContext, sourceFile *ast.SourceFile, declarationFilePath string, declarationMapPath string) []*declarations.DeclarationTransformer {
 	emitResolver := e.host.GetEmitResolver(sourceFile, false /*skipDiagnostics*/) // !!! conditionally skip diagnostics
-	transform := declarations.NewDeclarationTransformer(e.host, emitResolver, emitContext, e.host.Options(), declarationFilePath, declarationMapPath)
+	transform := declarations.NewDeclarationTransformer(e.host, emitResolver, emitContext, e.host.GetCompilerOptions(), declarationFilePath, declarationMapPath)
 	return []*declarations.DeclarationTransformer{transform}
 }
 
@@ -78,7 +78,7 @@ func getModuleTransformer(emitContext *printer.EmitContext, options *core.Compil
 
 func getScriptTransformers(emitContext *printer.EmitContext, host printer.EmitHost, sourceFile *ast.SourceFile) []*transformers.Transformer {
 	var tx []*transformers.Transformer
-	options := host.Options()
+	options := host.GetCompilerOptions()
 
 	// JS files don't use reference calculations as they don't do import elision, no need to calculate it
 	importElisionEnabled := !options.VerbatimModuleSyntax.IsTrue() && !ast.IsInJSFile(sourceFile.AsNode())
@@ -123,7 +123,7 @@ func getScriptTransformers(emitContext *printer.EmitContext, host printer.EmitHo
 }
 
 func (e *emitter) emitJSFile(sourceFile *ast.SourceFile, jsFilePath string, sourceMapFilePath string) {
-	options := e.host.Options()
+	options := e.host.GetCompilerOptions()
 
 	if sourceFile == nil || e.emitOnly != emitAll && e.emitOnly != emitOnlyJs || len(jsFilePath) == 0 {
 		return
@@ -164,7 +164,7 @@ func (e *emitter) emitJSFile(sourceFile *ast.SourceFile, jsFilePath string, sour
 }
 
 func (e *emitter) emitDeclarationFile(sourceFile *ast.SourceFile, declarationFilePath string, declarationMapPath string) {
-	options := e.host.Options()
+	options := e.host.GetCompilerOptions()
 
 	if sourceFile == nil || e.emitOnly != emitAll && e.emitOnly != emitOnlyDts || len(declarationFilePath) == 0 {
 		return
@@ -210,7 +210,7 @@ func (e *emitter) emitBuildInfo(buildInfoPath string) {
 
 func (e *emitter) printSourceFile(jsFilePath string, sourceMapFilePath string, sourceFile *ast.SourceFile, printer_ *printer.Printer, shouldEmitSourceMaps bool) bool {
 	// !!! sourceMapGenerator
-	options := e.host.Options()
+	options := e.host.GetCompilerOptions()
 	var sourceMapGenerator *sourcemap.Generator
 	if shouldEmitSourceMaps {
 		sourceMapGenerator = sourcemap.NewGenerator(
@@ -270,7 +270,7 @@ func (e *emitter) printSourceFile(jsFilePath string, sourceMapFilePath string, s
 	// Write the output file
 	text := e.writer.String()
 	data := &printer.WriteFileData{SourceMapUrlPos: sourceMapUrlPos} // !!! transform diagnostics
-	err := e.host.WriteFile(jsFilePath, text, e.host.Options().EmitBOM.IsTrue(), sourceFiles, data)
+	err := e.host.WriteFile(jsFilePath, text, e.host.GetCompilerOptions().EmitBOM.IsTrue(), sourceFiles, data)
 	if err != nil {
 		e.emitterDiagnostics.Add(ast.NewCompilerDiagnostic(diagnostics.Could_not_write_file_0_Colon_1, jsFilePath, err.Error()))
 	}
@@ -370,7 +370,7 @@ func (e *emitter) getSourceMappingURL(mapOptions *core.CompilerOptions, sourceMa
 }
 
 type SourceFileMayBeEmittedHost interface {
-	Options() *core.CompilerOptions
+	GetCompilerOptions() *core.CompilerOptions
 	GetOutputAndProjectReference(path tspath.Path) *tsoptions.OutputDtsAndProjectReference
 	IsSourceFileFromExternalLibrary(file *ast.SourceFile) bool
 	GetCurrentDirectory() string
@@ -380,7 +380,7 @@ type SourceFileMayBeEmittedHost interface {
 func sourceFileMayBeEmitted(sourceFile *ast.SourceFile, host SourceFileMayBeEmittedHost, forceDtsEmit bool) bool {
 	// TODO: move this to outputpaths?
 
-	options := host.Options()
+	options := host.GetCompilerOptions()
 	// Js files are emitted only if option is enabled
 	if options.NoEmitForJsFiles.IsTrue() && ast.IsSourceFileJS(sourceFile) {
 		return false
@@ -454,7 +454,7 @@ func getDeclarationDiagnostics(host EmitHost, resolver printer.EmitResolver, fil
 	if !core.Some(fullFiles, func(f *ast.SourceFile) bool { return f == file }) {
 		return []*ast.Diagnostic{}
 	}
-	options := host.Options()
+	options := host.GetCompilerOptions()
 	transform := declarations.NewDeclarationTransformer(host, resolver, nil, options, "", "")
 	transform.TransformSourceFile(file)
 	return transform.GetDiagnostics()

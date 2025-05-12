@@ -620,7 +620,7 @@ func newCompilationResult(
 	harnessOptions *HarnessOptions,
 ) *CompilationResult {
 	if program != nil {
-		options = program.Options()
+		options = program.GetCompilerOptions()
 	}
 
 	c := &CompilationResult{

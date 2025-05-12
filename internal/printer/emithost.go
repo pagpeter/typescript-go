@@ -17,7 +17,7 @@ type WriteFileData struct {
 
 // NOTE: EmitHost operations must be thread-safe
 type EmitHost interface {
-	Options() *core.CompilerOptions
+	GetCompilerOptions() *core.CompilerOptions
 	GetSourceFiles() []*ast.SourceFile
 	UseCaseSensitiveFileNames() bool
 	GetCurrentDirectory() string

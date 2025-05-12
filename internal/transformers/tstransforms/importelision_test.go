@@ -92,7 +92,7 @@ func (p *fakeProgram) UseCaseSensitiveFileNames() bool {
 	return true
 }
 
-func (p *fakeProgram) Options() *core.CompilerOptions {
+func (p *fakeProgram) GetCompilerOptions() *core.CompilerOptions {
 	return p.compilerOptions
 }
 

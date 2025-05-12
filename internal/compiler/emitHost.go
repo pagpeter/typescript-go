@@ -26,7 +26,7 @@ type WriteFileData struct {
 type EmitHost interface {
 	printer.EmitHost
 	declarations.DeclarationEmitHost
-	Options() *core.CompilerOptions
+	GetCompilerOptions() *core.CompilerOptions
 	GetSourceFiles() []*ast.SourceFile
 	UseCaseSensitiveFileNames() bool
 	GetCurrentDirectory() string
@@ -88,7 +88,7 @@ func (host *emitHost) GetEffectiveDeclarationFlags(node *ast.Node, flags ast.Mod
 
 func (host *emitHost) GetOutputPathsFor(file *ast.SourceFile, forceDtsPaths bool) declarations.OutputPaths {
 	// TODO: cache
-	return outputpaths.GetOutputPathsFor(file, host.Options(), host, forceDtsPaths)
+	return outputpaths.GetOutputPathsFor(file, host.GetCompilerOptions(), host, forceDtsPaths)
 }
 
 func (host *emitHost) GetResolutionModeOverride(node *ast.Node) core.ResolutionMode {
@@ -99,10 +99,12 @@ func (host *emitHost) GetSourceFileFromReference(origin *ast.SourceFile, ref *as
 	return host.program.GetSourceFileFromReference(origin, ref)
 }
 
-func (host *emitHost) Options() *core.CompilerOptions { return host.program.Options() }
+func (host *emitHost) GetCompilerOptions() *core.CompilerOptions {
+	return host.program.GetCompilerOptions()
+}
 func (host *emitHost) GetSourceFiles() []*ast.SourceFile { return host.program.GetSourceFiles() }
-func (host *emitHost) GetCurrentDirectory() string    { return host.program.GetCurrentDirectory() }
-func (host *emitHost) CommonSourceDirectory() string  { return host.program.CommonSourceDirectory() }
+func (host *emitHost) GetCurrentDirectory() string       { return host.program.GetCurrentDirectory() }
+func (host *emitHost) CommonSourceDirectory() string     { return host.program.CommonSourceDirectory() }
 func (host *emitHost) UseCaseSensitiveFileNames() bool {
 	return host.program.UseCaseSensitiveFileNames()
 }

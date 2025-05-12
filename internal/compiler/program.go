@@ -134,9 +134,9 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
 	// Still, without the failed lookup reporting that only the loader does, this isn't terribly complicated
 
 	fileName := tspath.ResolvePath(tspath.GetDirectoryPath(origin.FileName()), ref.FileName)
-	supportedExtensionsBase := tsoptions.GetSupportedExtensions(p.Options(), nil /*extraFileExtensions*/)
-	supportedExtensions := tsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(p.Options(), supportedExtensionsBase)
-	allowNonTsExtensions := p.Options().AllowNonTsExtensions.IsTrue()
+	supportedExtensionsBase := tsoptions.GetSupportedExtensions(p.GetCompilerOptions(), nil /*extraFileExtensions*/)
+	supportedExtensions := tsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(p.GetCompilerOptions(), supportedExtensionsBase)
+	allowNonTsExtensions := p.GetCompilerOptions().AllowNonTsExtensions.IsTrue()
 	if tspath.HasExtension(fileName) {
 		if !allowNonTsExtensions {
 			canonicalFileName := tspath.GetCanonicalFileName(fileName, p.UseCaseSensitiveFileNames())
@@ -240,14 +240,14 @@ func equalCheckJSDirectives(d1 *ast.CheckJsDirective, d2 *ast.CheckJsDirective) 
 	return d1 == nil && d2 == nil || d1 != nil && d2 != nil && d1.Enabled == d2.Enabled
 }
 
-func (p *Program) Options() *core.CompilerOptions { return p.opts.Config.CompilerOptions() }
+func (p *Program) GetCompilerOptions() *core.CompilerOptions { return p.opts.Config.CompilerOptions() }
 func (p *Program) Host() CompilerHost             { return p.opts.Host }
 func (p *Program) GetConfigFileParsingDiagnostics() []*ast.Diagnostic {
 	return slices.Clip(p.opts.Config.GetConfigFileParsingDiagnostics())
 }
 
 func (p *Program) singleThreaded() bool {
-	return p.opts.SingleThreaded.DefaultIfUnknown(p.Options().SingleThreaded).IsTrue()
+	return p.opts.SingleThreaded.DefaultIfUnknown(p.GetCompilerOptions().SingleThreaded).IsTrue()
 }
 
 func (p *Program) BindSourceFiles() {
@@ -351,7 +351,7 @@ func (p *Program) GetOptionsDiagnostics(ctx context.Context) []*ast.Diagnostic {
 
 func (p *Program) getOptionsDiagnosticsOfConfigFile() []*ast.Diagnostic {
 	// todo update p.configParsingDiagnostics when updateAndGetProgramDiagnostics is implemented
-	if p.Options() == nil || p.Options().ConfigFilePath == "" {
+	if p.GetCompilerOptions() == nil || p.GetCompilerOptions().ConfigFilePath == "" {
 		return nil
 	}
 	return p.GetConfigFileParsingDiagnostics() // TODO: actually call getDiagnosticsHelper on config path
@@ -371,7 +371,7 @@ func (p *Program) getBindDiagnosticsForFile(ctx context.Context, sourceFile *ast
 }
 
 func (p *Program) getSemanticDiagnosticsForFile(ctx context.Context, sourceFile *ast.SourceFile) []*ast.Diagnostic {
-	compilerOptions := p.Options()
+	compilerOptions := p.GetCompilerOptions()
 	if checker.SkipTypeChecking(sourceFile, compilerOptions, p) {
 		return nil
 	}
@@ -465,7 +465,7 @@ func (p *Program) getDeclarationDiagnosticsForFile(_ctx context.Context, sourceF
 }
 
 func (p *Program) getSuggestionDiagnosticsForFile(ctx context.Context, sourceFile *ast.SourceFile) []*ast.Diagnostic {
-	if checker.SkipTypeChecking(sourceFile, p.Options(), p) {
+	if checker.SkipTypeChecking(sourceFile, p.GetCompilerOptions(), p) {
 		return nil
 	}
 
@@ -644,7 +644,7 @@ func (p *Program) GetDefaultResolutionModeForFile(sourceFile ast.HasFileName) co
 func (p *Program) CommonSourceDirectory() string {
 	p.commonSourceDirectoryOnce.Do(func() {
 		p.commonSourceDirectory = outputpaths.GetCommonSourceDirectory(
-			p.Options(),
+			p.GetCompilerOptions(),
 			func() []string {
 				var files []string
 				host := &emitHost{program: p}
@@ -688,7 +688,7 @@ func (p *Program) Emit(options EmitOptions) *EmitResult {
 
 	writerPool := &sync.Pool{
 		New: func() any {
-			return printer.NewTextWriter(host.Options().NewLine.GetNewLineCharacter())
+			return printer.NewTextWriter(host.GetCompilerOptions().NewLine.GetNewLineCharacter())
 		},
 	}
 	wg := core.NewWorkGroup(p.singleThreaded())
@@ -711,7 +711,7 @@ func (p *Program) Emit(options EmitOptions) *EmitResult {
 
 			// attach writer and perform emit
 			emitter.writer = writer
-			emitter.paths = outputpaths.GetOutputPathsFor(sourceFile, host.Options(), host, options.forceDtsEmit)
+			emitter.paths = outputpaths.GetOutputPathsFor(sourceFile, host.GetCompilerOptions(), host, options.forceDtsEmit)
 			emitter.emit()
 			emitter.writer = nil
 

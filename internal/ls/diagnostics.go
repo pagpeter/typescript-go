@@ -21,7 +21,7 @@ func (l *LanguageService) GetDocumentDiagnostics(ctx context.Context, documentUR
 		// !!! user preference for suggestion diagnostics; keep only unnecessary/deprecated?
 		// See: https://github.com/microsoft/vscode/blob/3dbc74129aaae102e5cb485b958fa5360e8d3e7a/extensions/typescript-language-features/src/languageFeatures/diagnostics.ts#L114
 		diagnostics = append(diagnostics, program.GetSuggestionDiagnostics(ctx, file))
-		if program.Options().GetEmitDeclarations() {
+		if program.GetCompilerOptions().GetEmitDeclarations() {
 			diagnostics = append(diagnostics, program.GetDeclarationDiagnostics(ctx, file))
 		}
 	}
