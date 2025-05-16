@@ -43,9 +43,6 @@ func FindBestPatternMatch[T any](values []T, getPattern func(v T) Pattern, candi
 	longestMatchPrefixLength := -1
 	for _, value := range values {
 		pattern := getPattern(value)
-		if !pattern.IsValid() {
-			continue
-		}
 		if (pattern.StarIndex == -1 || pattern.StarIndex > longestMatchPrefixLength) && pattern.Matches(candidate) {
 			bestPattern = value
 			longestMatchPrefixLength = pattern.StarIndex
