@@ -58,6 +58,7 @@ const (
 	InternalSymbolNameExportEquals            = "export=" // Export assignment symbol
 	InternalSymbolNameDefault                 = "default" // Default export symbol (technically not wholly internal, but included here for usability)
 	InternalSymbolNameThis                    = "this"
+	InternalSymbolNameModuleExports           = "module.exports"
 )
 
 func SymbolName(symbol *Symbol) string {

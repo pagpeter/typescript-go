@@ -56,10 +56,10 @@ type CompilerOptions struct {
 	Lib                                       []string                                  `json:"lib,omitzero"`
 	Locale                                    string                                    `json:"locale,omitzero"`
 	MapRoot                                   string                                    `json:"mapRoot,omitzero"`
-	ModuleKind                                ModuleKind                                `json:"module,omitzero"`
+	Module                                    ModuleKind                                `json:"module,omitzero"`
 	ModuleResolution                          ModuleResolutionKind                      `json:"moduleResolution,omitzero"`
 	ModuleSuffixes                            []string                                  `json:"moduleSuffixes,omitzero"`
-	ModuleDetection                           ModuleDetectionKind                       `json:"moduleDetectionKind,omitzero"`
+	ModuleDetection                           ModuleDetectionKind                       `json:"moduleDetection,omitzero"`
 	NewLine                                   NewLineKind                               `json:"newLine,omitzero"`
 	NoEmit                                    Tristate                                  `json:"noEmit,omitzero"`
 	NoCheck                                   Tristate                                  `json:"noCheck,omitzero"`
@@ -136,6 +136,10 @@ type CompilerOptions struct {
 	TscBuild            Tristate `json:"tscBuild,omitzero"`
 	Help                Tristate `json:"help,omitzero"`
 	All                 Tristate `json:"all,omitzero"`
+
+	PprofDir       string   `json:"pprofDir,omitzero"`
+	SingleThreaded Tristate `json:"singleThreaded,omitzero"`
+	Quiet          Tristate `json:"quiet,omitzero"`
 }
 
 func (options *CompilerOptions) GetEmitScriptTarget() ScriptTarget {
@@ -153,8 +157,8 @@ func (options *CompilerOptions) GetEmitScriptTarget() ScriptTarget {
 }
 
 func (options *CompilerOptions) GetEmitModuleKind() ModuleKind {
-	if options.ModuleKind != ModuleKindNone {
-		return options.ModuleKind
+	if options.Module != ModuleKindNone {
+		return options.Module
 	}
 	if options.Target >= ScriptTargetES2015 {
 		return ModuleKindES2015
@@ -269,34 +273,25 @@ func (options *CompilerOptions) HasJsonModuleEmitEnabled() bool {
 	return true
 }
 
-// SourceFileAffectingCompilerOptions are the CompilerOptions values that when
-// changed require a new SourceFile be created.
+// SourceFileAffectingCompilerOptions are the precomputed CompilerOptions values which
+// affect the parse and bind of a source file.
 type SourceFileAffectingCompilerOptions struct {
-	// !!! generate this
-	Target               ScriptTarget
-	Jsx                  JsxEmit
-	JsxImportSource      string
-	ImportHelpers        Tristate
-	AlwaysStrict         Tristate
-	ModuleDetection      ModuleDetectionKind
-	AllowUnreachableCode Tristate
-	AllowUnusedLabels    Tristate
-	PreserveConstEnums   Tristate
-	IsolatedModules      Tristate
+	AllowUnreachableCode       Tristate
+	AllowUnusedLabels          Tristate
+	BindInStrictMode           bool
+	EmitScriptTarget           ScriptTarget
+	NoFallthroughCasesInSwitch Tristate
+	ShouldPreserveConstEnums   bool
 }
 
-func (options *CompilerOptions) SourceFileAffecting() SourceFileAffectingCompilerOptions {
-	return SourceFileAffectingCompilerOptions{
-		Target:               options.Target,
-		Jsx:                  options.Jsx,
-		JsxImportSource:      options.JsxImportSource,
-		ImportHelpers:        options.ImportHelpers,
-		AlwaysStrict:         options.AlwaysStrict,
-		ModuleDetection:      options.ModuleDetection,
-		AllowUnreachableCode: options.AllowUnreachableCode,
-		AllowUnusedLabels:    options.AllowUnusedLabels,
-		PreserveConstEnums:   options.PreserveConstEnums,
-		IsolatedModules:      options.IsolatedModules,
+func (options *CompilerOptions) SourceFileAffecting() *SourceFileAffectingCompilerOptions {
+	return &SourceFileAffectingCompilerOptions{
+		AllowUnreachableCode:       options.AllowUnreachableCode,
+		AllowUnusedLabels:          options.AllowUnusedLabels,
+		BindInStrictMode:           options.AlwaysStrict.IsTrue() || options.Strict.IsTrue(),
+		EmitScriptTarget:           options.GetEmitScriptTarget(),
+		NoFallthroughCasesInSwitch: options.NoFallthroughCasesInSwitch,
+		ShouldPreserveConstEnums:   options.ShouldPreserveConstEnums(),
 	}
 }
 
