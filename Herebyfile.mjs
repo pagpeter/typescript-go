@@ -20,6 +20,7 @@ const __filename = url.fileURLToPath(new URL(import.meta.url));
 const __dirname = path.dirname(__filename);
 
 const isCI = !!process.env.CI;
+const isAzurePipelines = !!process.env.TF_BUILD;
 
 const $pipe = _$({ verbose: "short" });
 const $ = _$({ verbose: "short", stdio: "inherit" });
@@ -706,6 +707,43 @@ export class Debouncer {
     }
 }
 
+/**
+ * @param {number} steps
+ */
+function createProgressReporter(steps) {
+    if (!isAzurePipelines) {
+        return {
+            start: () => {},
+            report: () => {},
+            done: () => {},
+        };
+    }
+
+    /**
+     * @param {number} value
+     */
+    function setProgress(value) {
+        console.log(`##vso[task.setprogress value=${value};]`);
+    }
+
+    function start() {
+        setProgress(0);
+    }
+
+    let current = 0;
+
+    function report() {
+        const percent = Math.min(Math.round((current / steps) * 100), 100);
+        setProgress(percent);
+    }
+
+    function done() {
+        setProgress(100);
+    }
+
+    return { start, report, done };
+}
+
 const getVersion = memoize(() => {
     const f = fs.readFileSync("./internal/core/version.go", "utf8");
 
@@ -937,6 +975,9 @@ export const buildNativePreviewPackages = task({
 
         const platforms = nativePreviewPlatforms();
 
+        const { start, report, done } = createProgressReporter(platforms.length);
+        start();
+
         const inputDir = "./_packages/native-preview";
 
         const inputPackageJson = JSON.parse(fs.readFileSync(path.join(inputDir, "package.json"), "utf8"));
@@ -1006,7 +1047,11 @@ export const buildNativePreviewPackages = task({
                     })
                 ),
             ]);
+
+            report();
         }));
+
+        done();
     },
 });
 
@@ -1019,6 +1064,9 @@ export const signNativePreviewPackages = task({
         }
 
         const platforms = nativePreviewPlatforms();
+
+        const { start, report, done } = createProgressReporter(1 + (platforms.some(p => p.nodeOs === "darwin") ? 1 : 0));
+        start();
 
         /** @type {Map<Cert, { tmpName: string; path: string }[]>} */
         const filelistByCert = new Map();
@@ -1088,6 +1136,7 @@ export const signNativePreviewPackages = task({
         }
 
         await sign(filelist);
+        report();
 
         // All of the files have been signed in place / had signatures added.
 
@@ -1105,6 +1154,7 @@ export const signNativePreviewPackages = task({
             };
 
             await sign(notarizeFilelist);
+            report();
 
             // Finally, unzip the notarized files and move them back to their original locations.
 
@@ -1119,6 +1169,8 @@ export const signNativePreviewPackages = task({
                 await fs.promises.chmod(p.path, 0o755);
             }
         }
+
+        done();
     },
 });
 
@@ -1128,10 +1180,14 @@ export const packNativePreviewPackages = task({
     dependencies: options.forRelease ? undefined : [buildNativePreviewPackages, cleanSignTempDirectory],
     run: async () => {
         const platforms = nativePreviewPlatforms();
+        const { start, report, done } = createProgressReporter(platforms.length + 1);
+        start();
+
         await Promise.all([mainNativePreviewPackage, ...platforms].map(async ({ npmDir, npmTarball }) => {
             const { stdout } = await $pipe`npm pack --json ${npmDir}`;
             const filename = JSON.parse(stdout)[0].filename.replace("@", "").replace("/", "-");
             await fs.promises.rename(filename, npmTarball);
+            report();
         }));
 
         // npm packages need to be published in reverse dep order, e.g. such that no package
@@ -1143,6 +1199,8 @@ export const packNativePreviewPackages = task({
 
         const publishOrderPath = path.join(builtNpm, "publish-order.txt");
         await fs.promises.writeFile(publishOrderPath, publishOrder.join("\n") + "\n");
+
+        done();
     },
 });
 
@@ -1151,10 +1209,16 @@ export const packNativePreviewExtensions = task({
     hiddenFromTaskList: true,
     dependencies: options.forRelease ? undefined : [buildNativePreviewPackages, cleanSignTempDirectory],
     run: async () => {
+        const platforms = nativePreviewPlatforms();
+
+        const { start, report, done } = createProgressReporter(platforms.length + 1);
+        start();
+
         await rimraf(builtVsix);
         await fs.promises.mkdir(builtVsix, { recursive: true });
 
         await $({ cwd: extensionDir })`npm run bundle`;
+        report();
 
         let version = "0.0.0";
         if (options.forRelease) {
@@ -1173,8 +1237,6 @@ export const packNativePreviewExtensions = task({
         }
 
         console.log("Version:", version);
-
-        const platforms = nativePreviewPlatforms();
 
         await Promise.all(platforms.map(async ({ npmDir, vscodeTarget, extensionDir: thisExtensionDir, vsixPath, vsixManifestPath, vsixSignaturePath }) => {
             const npmLibDir = path.join(npmDir, "lib");
@@ -1198,7 +1260,10 @@ export const packNativePreviewExtensions = task({
                 await $({ cwd: thisExtensionDir })`vsce generate-manifest --packagePath ${vsixPath} --out ${vsixManifestPath}`;
                 await fs.promises.cp(vsixManifestPath, vsixSignaturePath);
             }
+            report();
         }));
+
+        done();
     },
 });
 
@@ -1210,6 +1275,9 @@ export const signNativePreviewExtensions = task({
             throw new Error("This task should not be run in non-release builds.");
         }
 
+        const { start, report, done } = createProgressReporter(1);
+        start();
+
         const platforms = nativePreviewPlatforms();
         await sign({
             SignFileRecordList: [
@@ -1219,6 +1287,9 @@ export const signNativePreviewExtensions = task({
                 },
             ],
         });
+
+        report();
+        done();
     },
 });
 
