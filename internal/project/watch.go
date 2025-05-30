@@ -91,7 +91,18 @@ func createGlobMapper(host ProjectHost) func(data map[tspath.Path]string) []stri
 			if w == nil {
 				continue
 			}
-			globSet[w.dir] = globSet[w.dir] || !w.nonRecursive
+
+			dir := w.dir
+			if w.packageDir != nil && w.packageDirPath != nil {
+				real := host.FS().Realpath(*w.packageDir)
+				realPath := tspath.ToPath(real, "", host.FS().UseCaseSensitiveFileNames())
+
+				if realPath != *w.packageDirPath {
+					dir = real
+				}
+			}
+
+			globSet[dir] = globSet[dir] || !w.nonRecursive
 		}
 
 		globs := make([]string, 0, len(globSet))
