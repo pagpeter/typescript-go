@@ -22,12 +22,7 @@ const isCI = !!process.env.CI;
 const $pipe = _$({ verbose: "short" });
 const $ = _$({ verbose: "short", stdio: "inherit" });
 
-/**
- * @param {string} name
- * @param {boolean} defaultValue
- * @returns {boolean}
- */
-function parseEnvBoolean(name, defaultValue = false) {
+function parseEnvBoolean(name: string, defaultValue = false): boolean {
     name = "TSGO_HEREBY_" + name.toUpperCase();
 
     const value = process.env[name];
@@ -72,10 +67,8 @@ const { values: rawOptions } = parseArgs({
 });
 
 // We can't use parseArgs' strict mode as it errors on hereby's --tasks flag.
-/**
- * @typedef {{ [K in keyof typeof rawOptions as {} extends Record<K, 1> ? never : K]: typeof rawOptions[K] }} Options
- */
-const options = /** @type {Options} */ (rawOptions);
+type Options = { [K in keyof typeof rawOptions as {} extends Record<K, 1> ? never : K]: typeof rawOptions[K]; };
+const options = rawOptions as Options;
 
 if (options.forRelease && !options.setPrerelease) {
     throw new Error("forRelease requires setPrerelease");
@@ -85,11 +78,7 @@ const defaultGoBuildTags = [
     ...(options.noembed ? ["noembed"] : []),
 ];
 
-/**
- * @param  {...string} extra
- * @returns {string[]}
- */
-function goBuildTags(...extra) {
+function goBuildTags(...extra: string[]): string[] {
     const tags = new Set(defaultGoBuildTags.concat(extra));
     return tags.size ? [`-tags=${[...tags].join(",")}`] : [];
 }
@@ -100,18 +89,11 @@ const goBuildFlags = [
     ...(options.debug ? ["-gcflags=all=-N -l"] : []),
 ];
 
-/**
- * @template T
- * @param {() => T} fn
- * @returns {() => T}
- */
-function memoize(fn) {
-    /** @type {T} */
-    let value;
+function memoize<T>(fn: () => T): () => T {
+    let value: T;
     return () => {
         if (fn !== undefined) {
             value = fn();
-            fn = /** @type {any} */ (undefined);
         }
         return value;
     };
@@ -143,26 +125,20 @@ function assertTypeScriptCloned() {
     }
 }
 
-const tools = new Map([
+const tools = new Map<string, string>([
     ["gotest.tools/gotestsum", "latest"],
 ]);
 
-/**
- * @param {string} tool
- */
-function isInstalled(tool) {
+function isInstalled(tool: string): boolean {
     return !!which.sync(tool, { nothrow: true });
 }
 
 const builtLocal = "./built/local";
 
 const libsDir = "./internal/bundled/libs";
-const libsRegexp = /(?:^|[\\/])internal[\\/]bundled[\\/]libs[\\/]/;
+const libsRegexp = /(?:^|[\\\\/])internal[\\\\/]bundled[\\\\/]libs[\\\\/]/;
 
-/**
- * @param {string} out
- */
-async function generateLibs(out) {
+async function generateLibs(out: string) {
     await fs.promises.mkdir(out, { recursive: true });
 
     const libs = await fs.promises.readdir(libsDir);
@@ -177,14 +153,7 @@ export const lib = task({
     run: () => generateLibs(builtLocal),
 });
 
-/**
- * @param {object} [opts]
- * @param {string} [opts.out]
- * @param {AbortSignal} [opts.abortSignal]
- * @param {Record<string, string | undefined>} [opts.env]
- * @param {string[]} [opts.extraFlags]
- */
-function buildTsgo(opts) {
+function buildTsgo(opts?: { out?: string; abortSignal?: AbortSignal; env?: Record<string, string | undefined>; extraFlags?: string[]; }) {
     opts ||= {};
     const out = opts.out ?? "./built/local/";
     return $({ cancelSignal: opts.abortSignal, env: opts.env })`go build ${goBuildFlags} ${opts.extraFlags ?? []} ${goBuildTags("noembed")} -o ${out} ./cmd/tsgo`;
@@ -275,10 +244,7 @@ const ensureCoverageDirExists = memoize(() => {
     }
 });
 
-/**
- * @param {string} taskName
- */
-function goTestFlags(taskName) {
+function goTestFlags(taskName: string): string[] {
     ensureCoverageDirExists();
     return [
         ...goBuildFlags,
@@ -302,18 +268,12 @@ const goTestSumFlags = [
 
 const $test = $({ env: goTestEnv });
 
-/**
- * @param {string} taskName
- */
-function gotestsum(taskName) {
+function gotestsum(taskName: string): string[] {
     const args = isInstalled("gotestsum") ? ["gotestsum", ...goTestSumFlags, "--"] : ["go", "test"];
     return args.concat(goTestFlags(taskName));
 }
 
-/**
- * @param {string} taskName
- */
-function goTest(taskName) {
+function goTest(taskName: string): string[] {
     return ["go", "test"].concat(goTestFlags(taskName));
 }
 
@@ -481,19 +441,12 @@ export const postinstall = task({
     run: () => {
         // Ensure the go command doesn't waste time looking into node_modules.
         // Remove once https://github.com/golang/go/issues/42965 is fixed.
-        fs.writeFileSync(path.join(__dirname, "node_modules", "go.mod"), `module example.org/ignoreme\n`);
+        fs.writeFileSync(path.join(__dirname, "node_modules", "go.mod"), `module example.org/ignoreme\\n`);
     },
 });
 
-/**
- * @param {string} localBaseline Path to the local copy of the baselines
- * @param {string} refBaseline Path to the reference copy of the baselines
- */
-function baselineAcceptTask(localBaseline, refBaseline) {
-    /**
-     * @param {string} p
-     */
-    function localPathToRefPath(p) {
+function baselineAcceptTask(localBaseline: string, refBaseline: string) {
+    function localPathToRefPath(p: string): string {
         const relative = path.relative(localBaseline, p);
         return path.join(refBaseline, relative);
     }
@@ -520,35 +473,23 @@ export const baselineAccept = task({
     run: baselineAcceptTask("testdata/baselines/local/", "testdata/baselines/reference/"),
 });
 
-/**
- * @param {fs.PathLike} p
- */
-function rimraf(p) {
+function rimraf(p: fs.PathLike) {
     // The rimraf package uses maxRetries=10 on Windows, but Node's fs.rm does not have that special case.
     return fs.promises.rm(p, { recursive: true, force: true, maxRetries: process.platform === "win32" ? 10 : 0 });
 }
 
-/** @typedef {{
- * name: string;
- * paths: string | string[];
- * ignored?: (path: string) => boolean;
- * run: (paths: Set<string>, abortSignal: AbortSignal) => void | Promise<unknown>;
- * }} WatchTask */
-void 0;
+interface WatchTask {
+    name: string;
+    paths: string | string[];
+    ignored?: (path: string) => boolean;
+    run: (paths: Set<string>, abortSignal: AbortSignal) => void | Promise<unknown>;
+}
 
-/**
- * @param {string} name
- * @param {(paths: Set<string> | undefined, abortSignal: AbortSignal) => void | Promise<unknown>} run
- * @param {object} options
- * @param {string | string[]} options.paths
- * @param {(path: string) => boolean} [options.ignored]
- * @param {string} [options.name]
- */
-async function watchDebounced(name, run, options) {
+async function watchDebounced(name: string, run: (paths: Set<string> | undefined, abortSignal: AbortSignal) => void | Promise<unknown>, options: { paths: string | string[]; ignored?: (path: string) => boolean; name?: string; }) {
     let watching = true;
     let running = true;
     let lastChangeTimeMs = Date.now();
-    let changedDeferred = /** @type {Deferred<void>} */ (new Deferred());
+    let changedDeferred = new Deferred<void>();
     let abortController = new AbortController();
 
     const debouncer = new Debouncer(1_000, endRun);
@@ -558,8 +499,7 @@ async function watchDebounced(name, run, options) {
         alwaysStat: true,
     });
     // The paths that have changed since the last run.
-    /** @type {Set<string> | undefined} */
-    let paths;
+    let paths: Set<string> | undefined;
 
     process.on("SIGINT", endWatchMode);
     process.on("beforeExit", endWatchMode);
@@ -588,12 +528,7 @@ async function watchDebounced(name, run, options) {
 
     console.log("end");
 
-    /**
-     * @param {'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir' | 'all' | 'ready' | 'raw' | 'error'} eventName
-     * @param {string} path
-     * @param {fs.Stats | undefined} stats
-     */
-    function onChange(eventName, path, stats) {
+    function onChange(eventName: "add" | "addDir" | "change" | "unlink" | "unlinkDir" | "all" | "ready" | "raw" | "error", path: string, stats: fs.Stats | undefined) {
         switch (eventName) {
             case "change":
             case "unlink":
@@ -610,10 +545,7 @@ async function watchDebounced(name, run, options) {
         beginRun(path);
     }
 
-    /**
-     * @param {string} path
-     */
-    function beginRun(path) {
+    function beginRun(path: string) {
         if (debouncer.empty) {
             console.log(pc.yellowBright(`[${name}] changed due to '${path}', restarting...`));
             if (running) {
@@ -631,7 +563,7 @@ async function watchDebounced(name, run, options) {
     function endRun() {
         lastChangeTimeMs = Date.now();
         changedDeferred.resolve();
-        changedDeferred = /** @type {Deferred<void>} */ (new Deferred());
+        changedDeferred = new Deferred<void>();
     }
 
     function endWatchMode() {
@@ -644,25 +576,33 @@ async function watchDebounced(name, run, options) {
     }
 }
 
-/**
- * @template T
- */
-export class Deferred {
+export class Deferred<T> {
+    promise: Promise<T>;
+    private _resolve!: (value: T | PromiseLike<T>) => void;
+    private _reject!: (reason?: any) => void;
+
     constructor() {
-        /** @type {Promise<T>} */
         this.promise = new Promise((resolve, reject) => {
-            this.resolve = resolve;
-            this.reject = reject;
+            this._resolve = resolve;
+            this._reject = reject;
         });
+    }
+
+    resolve(value: T | PromiseLike<T>): void {
+        this._resolve(value);
+    }
+
+    reject(reason?: any): void {
+        this._reject(reason);
     }
 }
 
 export class Debouncer {
-    /**
-     * @param {number} timeout
-     * @param {() => Promise<any> | void} action
-     */
-    constructor(timeout, action) {
+    private _timeout: number;
+    private _action: () => Promise<any> | void;
+    private _timer: NodeJS.Timeout | undefined;
+    private _deferred: Deferred<void> | undefined;
+    constructor(timeout: number, action: () => Promise<any> | void) {
         this._timeout = timeout;
         this._action = action;
     }
@@ -741,17 +681,21 @@ const cleanSignTempDirectory = task({
 
 let signCount = 0;
 
-/**
- * @typedef {{
- *   SignFileRecordList: {
- *     SignFileList: { SrcPath: string; DstPath: string | null; }[];
- *     Certs: Cert;
- *   }[]
- * }} DDSignFileList
- *
- * @param {DDSignFileList} filelist
- */
-async function sign(filelist) {
+interface DDSignFileListItem {
+    SrcPath: string;
+    DstPath: string | null;
+}
+
+interface DDSignFileRecord {
+    SignFileList: DDSignFileListItem[];
+    Certs: Cert;
+}
+
+interface DDSignFileList {
+    SignFileRecordList: DDSignFileRecord[];
+}
+
+async function sign(filelist: DDSignFileList) {
     const data = JSON.stringify(filelist, undefined, 4);
     console.log("filelist:", data);
 
@@ -763,31 +707,9 @@ async function sign(filelist) {
         for (const record of filelist.SignFileRecordList) {
             for (const file of record.SignFileList) {
                 const src = file.SrcPath;
-                const dst = file.DstPath ?? src;
-
-                if (!fs.existsSync(src)) {
-                    throw new Error(`Source file does not exist: ${src}`);
-                }
-
-                const dstDir = path.dirname(dst);
-                if (!fs.existsSync(dstDir)) {
-                    throw new Error(`Destination directory does not exist: ${dstDir}`);
-                }
-
-                if (dst.endsWith(".sig")) {
-                    console.log(`Faking signature for ${src} -> ${dst}`);
-                    // No great way to fake a signature.
-                    await fs.promises.writeFile(dst, "fake signature");
-                }
-                else {
-                    if (src === dst) {
-                        console.log(`Faking signing ${src}`);
-                    }
-                    else {
-                        console.log(`Faking signing ${src} -> ${dst}`);
-                    }
-                    const contents = await fs.promises.readFile(src);
-                    await fs.promises.writeFile(dst, contents);
+                const dest = file.DstPath ?? src;
+                if (src !== dest) {
+                    await fs.promises.copyFile(src, dest);
                 }
             }
         }
@@ -809,24 +731,15 @@ async function sign(filelist) {
     }
 }
 
-/**
- * @param {string} src
- * @param {string} dest
- * @param {(p: string) => boolean} [filter]
- */
-function cpRecursive(src, dest, filter) {
+function cpRecursive(src: string, dest: string, filter?: (p: string) => boolean) {
     return fs.promises.cp(src, dest, {
         recursive: true,
-        filter: filter ? src => filter(src.replace(/\\/g, "/")) : undefined,
+        filter: filter ? (src: string) => filter(src.replace(/\\\\/g, "/")) : undefined,
     });
 }
 
-/**
- * @param {string} src
- * @param {string} dest
- */
-function cpWithoutNodeModulesOrTsconfig(src, dest) {
-    return cpRecursive(src, dest, p => !p.endsWith("/node_modules") && !p.endsWith("/tsconfig.json"));
+function cpWithoutNodeModulesOrTsconfig(src: string, dest: string) {
+    return cpRecursive(src, dest, (p: string) => !p.endsWith("/node_modules") && !p.endsWith("/tsconfig.json"));
 }
 
 const mainNativePreviewPackage = {
@@ -835,17 +748,13 @@ const mainNativePreviewPackage = {
     npmTarball: path.join(builtNpm, "native-preview.tgz"),
 };
 
-/**
- * @typedef {"win32" | "linux" | "darwin"} OS
- * @typedef {"x64" | "arm" | "arm64"} Arch
- * @typedef {"Microsoft400" | "LinuxSign" | "MacDeveloperHarden" | "8020" | "VSCodePublisher"} Cert
- * @typedef {`${OS | "alpine"}-${Exclude<Arch, "arm"> | "armhf"}`} VSCodeTarget
- */
-void 0;
+type OS = "win32" | "linux" | "darwin";
+type Arch = "x64" | "arm" | "arm64";
+type Cert = "Microsoft400" | "LinuxSign" | "MacDeveloperHarden" | "8020" | "VSCodePublisher";
+type VSCodeTarget = `${OS | "alpine"}-${Exclude<Arch, "arm"> | "armhf"}`;
 
 const nativePreviewPlatforms = memoize(() => {
-    /** @type {[os: OS, arch: Arch, cert: Cert, alpine?: boolean][]} */
-    let supportedPlatforms = [
+    let supportedPlatforms: [os: OS, arch: Arch, cert: Cert, alpine?: boolean][] = [
         ["win32", "x64", "Microsoft400"],
         ["win32", "arm64", "Microsoft400"],
         ["linux", "x64", "LinuxSign", true],
@@ -874,17 +783,12 @@ const nativePreviewPlatforms = memoize(() => {
         }
 
         const extensions = vscodeTargets.map(vscodeTarget => {
-            const extensionDir = path.join(builtVsix, `typescript-native-preview-${vscodeTarget}`);
-            const vsixPath = extensionDir + ".vsix";
-            const vsixManifestPath = extensionDir + ".manifest";
-            const vsixSignaturePath = extensionDir + ".signature.p7s";
-            return {
-                vscodeTarget,
-                extensionDir,
-                vsixPath,
-                vsixManifestPath,
-                vsixSignaturePath,
-            };
+            const extensionDir = path.join(builtVsix, vscodeTarget);
+            const vsixName = `typescript-go-${getVersion()}-${vscodeTarget}.vsix`;
+            const vsixPath = path.join(extensionDir, vsixName);
+            const vsixManifestPath = path.join(extensionDir, ".vsixmanifest");
+            const vsixSignaturePath = path.join(extensionDir, ".vscodesign");
+            return { vscodeTarget, extensionDir, vsixPath, vsixManifestPath, vsixSignaturePath };
         });
 
         return {
@@ -905,7 +809,7 @@ const nativePreviewPlatforms = memoize(() => {
      * @param {string} os
      * @returns {"darwin" | "linux" | "windows"}
      */
-    function nodeToGOOS(os) {
+    function nodeToGOOS(os: string): "darwin" | "linux" | "windows" {
         switch (os) {
             case "darwin":
                 return "darwin";
@@ -922,7 +826,7 @@ const nativePreviewPlatforms = memoize(() => {
      * @param {string} arch
      * @returns {"amd64" | "arm" | "arm64"}
      */
-    function nodeToGOARCH(arch) {
+    function nodeToGOARCH(arch: string): "amd64" | "arm" | "arm64" {
         switch (arch) {
             case "x64":
                 return "amd64";
@@ -931,7 +835,7 @@ const nativePreviewPlatforms = memoize(() => {
             case "arm64":
                 return "arm64";
             default:
-                throw new Error(`Unsupported ARCH: ${arch}`);
+                throw new Error(`Unsupported arch: ${arch}`);
         }
     }
 });
@@ -1028,7 +932,7 @@ export const signNativePreviewPackages = task({
         const platforms = nativePreviewPlatforms();
 
         /** @type {Map<Cert, { tmpName: string; path: string }[]>} */
-        const filelistByCert = new Map();
+        const filelistByCert = new Map<Cert, { tmpName: string; path: string; }[]>();
         for (const { npmDir, nodeOs, cert, npmDirName } of platforms) {
             let certFilelist = filelistByCert.get(cert);
             if (!certFilelist) {
@@ -1043,12 +947,12 @@ export const signNativePreviewPackages = task({
         const tmp = await getSignTempDir();
 
         /** @type {DDSignFileList} */
-        const filelist = {
+        const filelist: DDSignFileList = {
             SignFileRecordList: [],
         };
 
         /** @type {{ path: string; unsignedZipPath: string; signedZipPath: string; notarizedZipPath: string; }[]} */
-        const macZips = [];
+        const macZips: { path: string; unsignedZipPath: string; signedZipPath: string; notarizedZipPath: string; }[] = [];
 
         // First, sign the files.
 
@@ -1102,8 +1006,7 @@ export const signNativePreviewPackages = task({
         if (macZips.length) {
             // Now, notarize the Mac files.
 
-            /** @type {DDSignFileList} */
-            const notarizeFilelist = {
+            const notarizeFilelist: DDSignFileList = {
                 SignFileRecordList: [
                     {
                         SignFileList: macZips.map(p => ({ SrcPath: p.signedZipPath, DstPath: p.notarizedZipPath })),
@@ -1252,13 +1155,13 @@ export const installExtension = task({
         const platforms = nativePreviewPlatforms();
         const myPlatform = platforms.find(p => p.nodeOs === process.platform && p.nodeArch === process.arch);
         if (!myPlatform) {
-            throw new Error(`No platform found for ${process.platform}-${process.arch}`);
+            throw new Error(`No native preview platform found for ${process.platform}-${process.arch}`);
         }
 
         await $`${options.insiders ? "code-insiders" : "code"} --install-extension ${myPlatform.extensions[0].vsixPath}`;
-        console.log(pc.yellowBright("\nExtension installed. ") + "To enable this extension, set:\n");
-        console.log(pc.whiteBright(`    "typescript.experimental.useTsgo": true\n`));
-        console.log("To configure the extension to use built/local instead of its bundled tsgo, set:\n");
+        console.log(pc.yellowBright("\\nExtension installed. ") + "To enable this extension, set:\\n");
+        console.log(pc.whiteBright(`    "typescript.experimental.useTsgo": true\\n`));
+        console.log("To configure the extension to use built/local instead of its bundled tsgo, set:\\n");
         console.log(pc.whiteBright(`    "typescript.native-preview.tsdk": "${path.join(__dirname, "built", "local")}"\n`));
     },
 });
