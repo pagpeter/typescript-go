@@ -1,5 +1,3 @@
-// @ts-check
-
 import AdmZip from "adm-zip";
 import chokidar from "chokidar";
 import { $ as _$ } from "execa";
