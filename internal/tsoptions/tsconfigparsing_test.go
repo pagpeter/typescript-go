@@ -550,33 +550,6 @@ var tsconfigWithExtendsAndConfigDir = `{
   }
 }`
 
-func TestParseJsonConfigFileContent(t *testing.T) {
-	t.Parallel()
-	repo.SkipIfNoTypeScriptSubmodule(t)
-	for _, rec := range parseJsonConfigFileTests {
-		t.Run(rec.title+" with json api", func(t *testing.T) {
-			t.Parallel()
-			baselineParseConfigWith(t, rec.title+" with json api.js", rec.noSubmoduleBaseline, rec.input, getParsedWithJsonApi)
-		})
-	}
-}
-
-func getParsedWithJsonApi(config testConfig, host tsoptions.ParseConfigHost, basePath string) *tsoptions.ParsedCommandLine {
-	configFileName := tspath.GetNormalizedAbsolutePath(config.configFileName, basePath)
-	path := tspath.ToPath(config.configFileName, basePath, host.FS().UseCaseSensitiveFileNames())
-	parsed, _ := tsoptions.ParseConfigFileTextToJson(configFileName, path, config.jsonText)
-	return tsoptions.ParseJsonConfigFileContent(
-		parsed,
-		host,
-		basePath,
-		nil,
-		configFileName,
-		/*resolutionStack*/ nil,
-		/*extraFileExtensions*/ nil,
-		/*extendedConfigCache*/ nil,
-	)
-}
-
 func TestParseJsonSourceFileConfigFileContent(t *testing.T) {
 	t.Parallel()
 	repo.SkipIfNoTypeScriptSubmodule(t)
@@ -753,7 +726,6 @@ func TestParseTypeAcquisition(t *testing.T) {
 		},
 	}
 	for _, test := range cases {
-		withJsonApiName := test.title + " with json api"
 		input := []testConfig{
 			{
 				jsonText:       test.config,
@@ -765,10 +737,6 @@ func TestParseTypeAcquisition(t *testing.T) {
 				},
 			},
 		}
-		t.Run(withJsonApiName, func(t *testing.T) {
-			t.Parallel()
-			baselineParseConfigWith(t, withJsonApiName+".js", true, input, getParsedWithJsonApi)
-		})
 		withJsonSourceFileApiName := test.title + " with jsonSourceFile api"
 		t.Run(withJsonSourceFileApiName, func(t *testing.T) {
 			t.Parallel()
