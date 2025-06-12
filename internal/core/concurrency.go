@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -66,9 +65,7 @@ var testProgramConcurrency = sync.OnceValues(func() (concurrency Concurrency, ra
 	if v == "" && !race.Enabled {
 		v = "single"
 	}
-	c := parseConcurrency(v)
-	fmt.Println(c, v)
-	return c, v
+	return parseConcurrency(v), v
 })
 
 func TestProgramConcurrency() (concurrency Concurrency, raw string) {
