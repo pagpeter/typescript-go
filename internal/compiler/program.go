@@ -39,7 +39,7 @@ type Program struct {
 	opts        ProgramOptions
 	nodeModules map[string]*ast.SourceFile
 
-	concurrency     concurrency
+	concurrency     core.Concurrency
 	concurrencyOnce sync.Once
 	checkerPool     CheckerPool
 	checkerPoolOnce sync.Once
@@ -290,15 +290,15 @@ func (p *Program) GetConfigFileParsingDiagnostics() []*ast.Diagnostic {
 	return slices.Clip(p.opts.Config.GetConfigFileParsingDiagnostics())
 }
 
-func (p *Program) getConcurrency() concurrency {
+func (p *Program) getConcurrency() core.Concurrency {
 	p.concurrencyOnce.Do(func() {
-		p.concurrency = parseConcurrency(p.Options(), len(p.files))
+		p.concurrency = core.ParseConcurrency(p.Options())
 	})
 	return p.concurrency
 }
 
 func (p *Program) singleThreaded() bool {
-	return p.getConcurrency().isSingleThreaded()
+	return p.getConcurrency().SingleThreaded()
 }
 
 func (p *Program) getCheckerPool() CheckerPool {
@@ -306,7 +306,7 @@ func (p *Program) getCheckerPool() CheckerPool {
 		if p.opts.CreateCheckerPool != nil {
 			p.checkerPool = p.opts.CreateCheckerPool(p)
 		} else {
-			p.checkerPool = newCheckerPool(p.getConcurrency().getCheckerCount(len(p.files)), p)
+			p.checkerPool = newCheckerPool(p.getConcurrency().CheckerCount(len(p.files)), p)
 		}
 	})
 	return p.checkerPool

@@ -25,7 +25,6 @@ import (
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/sourcemap"
-	"github.com/microsoft/typescript-go/internal/testutil"
 	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -182,9 +181,9 @@ func CompileFilesEx(
 		compilerOptions.TypeRoots[i] = tspath.GetNormalizedAbsolutePath(typeRoot, currentDirectory)
 	}
 
-	if compilerOptions.Concurrency == "" && compilerOptions.SingleThreaded.IsUnknown() && testutil.TestProgramIsSingleThreaded() {
-		// TODO(jakebailey): replace TestProgramIsSingleThreaded with passed in value
-		compilerOptions.Concurrency = "1"
+	if compilerOptions.Concurrency == "" && compilerOptions.SingleThreaded.IsUnknown() {
+		_, concurrency := core.TestProgramConcurrency()
+		compilerOptions.Concurrency = concurrency
 	}
 
 	// Create fake FS for testing
