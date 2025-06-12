@@ -69,50 +69,50 @@ function *t10() {
 function* t1() {
     yield (
     // comment
-    a);
+    (a));
 }
 function* t2() {
     yield (
     // comment
-    a) + 1;
+    a + 1);
 }
 function* t3() {
     yield (
     // comment
-    a) ? 0 : 1;
+    a ? 0 : 1);
 }
 function* t4() {
     yield (
     // comment
-    a).b;
+    a.b);
 }
 function* t5() {
     yield (
     // comment
-    a)[a];
+    a[a]);
 }
 function* t6() {
     yield (
     // comment
-    a)();
+    a());
 }
 function* t7() {
     yield (
     // comment
-    a) ``;
+    a ``);
 }
 function* t8() {
     yield (
     // comment
-    a);
+    (a));
 }
 function* t9() {
     yield (
     // comment
-    a);
+    (a));
 }
 function* t10() {
     yield (
     // comment
-    a);
+    (a));
 }
