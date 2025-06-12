@@ -8,6 +8,8 @@ import (
 )
 
 func TestConcurrency(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		opts           *CompilerOptions
@@ -38,6 +40,8 @@ func TestConcurrency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			c := ParseConcurrency(tt.opts)
 			singleThreaded := c.SingleThreaded()
 			checkerCount := c.CheckerCount(tt.numFiles)
@@ -47,6 +51,8 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	t.Run("TestProgramConcurrency", func(t *testing.T) {
+		t.Parallel()
+
 		c, _ := TestProgramConcurrency()
 		assert.Assert(t, c.CheckerCount(10000) > 0)
 	})
