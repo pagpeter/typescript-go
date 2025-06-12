@@ -27,9 +27,9 @@ func parseConcurrency(v string) Concurrency {
 	checkerCount := 4
 
 	switch strings.ToLower(v) {
-	case "default", "auto":
+	case "default", "auto", "true", "yes", "on":
 		break
-	case "single", "none":
+	case "single", "none", "false", "no", "off":
 		checkerCount = 1
 	case "max":
 		checkerCount = runtime.GOMAXPROCS(0)
