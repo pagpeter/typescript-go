@@ -23,10 +23,10 @@ func ParseConcurrency(options *CompilerOptions) Concurrency {
 	return parseConcurrency(options.Concurrency)
 }
 
-func parseConcurrency(v string) Concurrency {
+func parseConcurrency(s string) Concurrency {
 	checkerCount := 4
 
-	switch strings.ToLower(v) {
+	switch strings.ToLower(s) {
 	case "default", "auto", "true", "yes", "on":
 		break
 	case "single", "none", "false", "no", "off":
@@ -38,8 +38,10 @@ func parseConcurrency(v string) Concurrency {
 	case "checker-per-file":
 		checkerCount = -1
 	default:
-		if v, err := strconv.Atoi(v); err == nil && v > 0 {
-			checkerCount = v
+		if s != "" {
+			if v, err := strconv.Atoi(s); err == nil && v > 0 {
+				checkerCount = v
+			}
 		}
 	}
 
@@ -53,9 +55,11 @@ func (c Concurrency) SingleThreaded() bool {
 }
 
 func (c Concurrency) CheckerCount(numFiles int) int {
-	checkerCount := min(c.checkerCount, numFiles)
-	checkerCount = max(1, checkerCount)
-	return checkerCount
+	checkerCount := c.checkerCount
+	if c.checkerCount == -1 {
+		return max(1, numFiles)
+	}
+	return min(max(1, checkerCount), numFiles)
 }
 
 var testProgramConcurrency = sync.OnceValues(func() (concurrency Concurrency, raw string) {
