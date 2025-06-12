@@ -182,6 +182,11 @@ func CompileFilesEx(
 		compilerOptions.TypeRoots[i] = tspath.GetNormalizedAbsolutePath(typeRoot, currentDirectory)
 	}
 
+	if compilerOptions.Concurrency == "" && compilerOptions.SingleThreaded.IsUnknown() && testutil.TestProgramIsSingleThreaded() {
+		// TODO(jakebailey): replace TestProgramIsSingleThreaded with passed in value
+		compilerOptions.Concurrency = "1"
+	}
+
 	// Create fake FS for testing
 	testfs := map[string]any{}
 	for _, file := range inputFiles {
@@ -841,18 +846,11 @@ func (c *CompilationResult) GetSourceMapRecord() string {
 }
 
 func createProgram(host compiler.CompilerHost, config *tsoptions.ParsedCommandLine) *compiler.Program {
-	var singleThreaded core.Tristate
-	if testutil.TestProgramIsSingleThreaded() {
-		singleThreaded = core.TSTrue
-	}
-
 	programOptions := compiler.ProgramOptions{
-		Config:         config,
-		Host:           host,
-		SingleThreaded: singleThreaded,
+		Config: config,
+		Host:   host,
 	}
-	program := compiler.NewProgram(programOptions)
-	return program
+	return compiler.NewProgram(programOptions)
 }
 
 func EnumerateFiles(folder string, testRegex *regexp.Regexp, recursive bool) ([]string, error) {
