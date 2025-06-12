@@ -53,10 +53,9 @@ func (c Concurrency) SingleThreaded() bool {
 }
 
 func (c Concurrency) CheckerCount(numFiles int) int {
-	if c.checkerCount == -1 {
-		return max(1, numFiles)
-	}
-	return max(1, c.checkerCount)
+	checkerCount := min(c.checkerCount, numFiles)
+	checkerCount = max(1, checkerCount)
+	return checkerCount
 }
 
 var testProgramConcurrency = sync.OnceValues(func() (concurrency Concurrency, raw string) {
