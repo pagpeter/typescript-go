@@ -72,34 +72,34 @@ function t1() {
     (a));
 }
 function t2() {
-    return (
+    return 
     // comment
-    a + 1);
+    a + 1;
 }
 function t3() {
-    return (
+    return 
     // comment
-    a ? 0 : 1);
+    a ? 0 : 1;
 }
 function t4() {
-    return (
+    return 
     // comment
-    a.b);
+    a.b;
 }
 function t5() {
-    return (
+    return 
     // comment
-    a[a]);
+    a[a];
 }
 function t6() {
-    return (
+    return 
     // comment
-    a());
+    a();
 }
 function t7() {
-    return (
+    return 
     // comment
-    a ``);
+    a ``;
 }
 function t8() {
     return (
