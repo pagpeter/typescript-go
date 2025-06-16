@@ -30,7 +30,7 @@ func TestConcurrency(t *testing.T) {
 		{"no", &CompilerOptions{Concurrency: "no"}, 100, true, 1},
 		{"off", &CompilerOptions{Concurrency: "off"}, 100, true, 1},
 		{"max", &CompilerOptions{Concurrency: "max"}, 1000, false, runtime.GOMAXPROCS(0)},
-		{"half", &CompilerOptions{Concurrency: "half"}, 1000, false, runtime.GOMAXPROCS(0) / 2},
+		{"half", &CompilerOptions{Concurrency: "half"}, 1000, runtime.GOMAXPROCS(0)/2 == 1, runtime.GOMAXPROCS(0) / 2},
 		{"checker-per-file", &CompilerOptions{Concurrency: "checker-per-file"}, 100, false, 100},
 		{"more than files", &CompilerOptions{Concurrency: "1000"}, 100, false, 100},
 		{"10", &CompilerOptions{Concurrency: "10"}, 100, false, 10},
