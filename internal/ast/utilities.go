@@ -802,8 +802,9 @@ const (
 	OEKNonNullAssertions            OuterExpressionKinds = 1 << 2
 	OEKPartiallyEmittedExpressions  OuterExpressionKinds = 1 << 3
 	OEKExpressionsWithTypeArguments OuterExpressionKinds = 1 << 4
-	OEKExcludeJSDocTypeAssertion                         = 1 << 5
-	OEKAssertions                                        = OEKTypeAssertions | OEKNonNullAssertions
+	OEKSatisfies                    OuterExpressionKinds = 1 << 5
+	OEKExcludeJSDocTypeAssertion                         = 1 << 6
+	OEKAssertions                                        = OEKTypeAssertions | OEKNonNullAssertions | OEKSatisfies
 	OEKAll                                               = OEKParentheses | OEKAssertions | OEKPartiallyEmittedExpressions | OEKExpressionsWithTypeArguments
 )
 
@@ -812,8 +813,10 @@ func IsOuterExpression(node *Expression, kinds OuterExpressionKinds) bool {
 	switch node.Kind {
 	case KindParenthesizedExpression:
 		return kinds&OEKParentheses != 0 && !(kinds&OEKExcludeJSDocTypeAssertion != 0 && isJSDocTypeAssertion(node))
-	case KindTypeAssertionExpression, KindAsExpression, KindSatisfiesExpression:
+	case KindTypeAssertionExpression, KindAsExpression:
 		return kinds&OEKTypeAssertions != 0
+	case KindSatisfiesExpression:
+		return kinds&(OEKExpressionsWithTypeArguments|OEKSatisfies) != 0
 	case KindExpressionWithTypeArguments:
 		return kinds&OEKExpressionsWithTypeArguments != 0
 	case KindNonNullExpression:
@@ -865,9 +868,11 @@ func WalkUpParenthesizedTypes(node *TypeNode) *Node {
 }
 
 func GetEffectiveTypeParent(parent *Node) *Node {
-	if IsInJSFile(parent) && parent.Kind == KindJSDocTypeExpression {
-		if host := parent.AsJSDocTypeExpression().Host; host != nil {
-			parent = host
+	if parent != nil && IsInJSFile(parent) {
+		if parent.Kind == KindJSDocTypeExpression && parent.AsJSDocTypeExpression().Host != nil {
+			parent = parent.AsJSDocTypeExpression().Host
+		} else if parent.Kind == KindJSDocTemplateTag && parent.AsJSDocTemplateTag().Host != nil {
+			parent = parent.AsJSDocTemplateTag().Host
 		}
 	}
 	return parent
@@ -1493,17 +1498,18 @@ func GetAssignmentDeclarationKind(bin *BinaryExpression) JSDeclarationKind {
 	if bin.OperatorToken.Kind != KindEqualsToken || !IsAccessExpression(bin.Left) {
 		return JSDeclarationKindNone
 	}
-	if IsModuleExportsAccessExpression(bin.Left) {
+	if IsInJSFile(bin.Left) && IsModuleExportsAccessExpression(bin.Left) {
 		return JSDeclarationKindModuleExports
-	} else if (IsModuleExportsAccessExpression(bin.Left.Expression()) || IsExportsIdentifier(bin.Left.Expression())) &&
+	} else if IsInJSFile(bin.Left) &&
+		(IsModuleExportsAccessExpression(bin.Left.Expression()) || IsExportsIdentifier(bin.Left.Expression())) &&
 		GetElementOrPropertyAccessName(bin.Left) != nil {
 		return JSDeclarationKindExportsProperty
 	}
-	if bin.Left.Expression().Kind == KindThisKeyword {
+	if IsInJSFile(bin.Left) && bin.Left.Expression().Kind == KindThisKeyword {
 		return JSDeclarationKindThisProperty
 	}
-	if bin.Left.Kind == KindPropertyAccessExpression && IsIdentifier(bin.Left.Expression()) && IsIdentifier(bin.Left.Name()) ||
-		bin.Left.Kind == KindElementAccessExpression && IsIdentifier(bin.Left.Expression()) {
+	if bin.Left.Kind == KindPropertyAccessExpression && IsEntityNameExpressionEx(bin.Left.Expression(), IsInJSFile(bin.Left)) && IsIdentifier(bin.Left.Name()) ||
+		bin.Left.Kind == KindElementAccessExpression && IsEntityNameExpressionEx(bin.Left.Expression(), IsInJSFile(bin.Left)) {
 		return JSDeclarationKindProperty
 	}
 	return JSDeclarationKindNone
@@ -1536,13 +1542,33 @@ func IsDynamicName(name *Node) bool {
 }
 
 func IsEntityNameExpression(node *Node) bool {
-	return node.Kind == KindIdentifier || IsPropertyAccessEntityNameExpression(node)
+	return IsEntityNameExpressionEx(node, false /*allowJS*/)
 }
 
-func IsPropertyAccessEntityNameExpression(node *Node) bool {
+func IsEntityNameExpressionEx(node *Node, allowJS bool) bool {
+	if node.Kind == KindIdentifier || IsPropertyAccessEntityNameExpression(node, allowJS) {
+		return true
+	}
+	if allowJS {
+		return node.Kind == KindThisKeyword || isElementAccessEntityNameExpression(node, allowJS)
+	}
+	return false
+}
+
+func IsPropertyAccessEntityNameExpression(node *Node, allowJS bool) bool {
 	if node.Kind == KindPropertyAccessExpression {
 		expr := node.AsPropertyAccessExpression()
-		return expr.Name().Kind == KindIdentifier && IsEntityNameExpression(expr.Expression)
+		return expr.Name().Kind == KindIdentifier && IsEntityNameExpressionEx(expr.Expression, allowJS)
+	}
+	return false
+}
+
+func isElementAccessEntityNameExpression(node *Node, allowJS bool) bool {
+	if node.Kind == KindElementAccessExpression {
+		expr := node.AsElementAccessExpression()
+		if IsStringOrNumericLiteralLike(SkipParentheses(expr.ArgumentExpression)) {
+			return IsEntityNameExpressionEx(expr.Expression, allowJS)
+		}
 	}
 	return false
 }
@@ -2679,7 +2705,7 @@ func ForEachDynamicImportOrRequireCall(
 	lastIndex, size := findImportOrRequire(file.Text(), 0)
 	for lastIndex >= 0 {
 		node := GetNodeAtPosition(file, lastIndex, isJavaScriptFile && includeTypeSpaceImports)
-		if isJavaScriptFile && IsRequireCall(node) {
+		if isJavaScriptFile && IsRequireCall(node, requireStringLiteralLikeArgument) {
 			if cb(node, node.Arguments()[0]) {
 				return true
 			}
@@ -2699,8 +2725,10 @@ func ForEachDynamicImportOrRequireCall(
 	return false
 }
 
-// IsVariableDeclarationInitializedToRequire should be used wherever parent pointers are set
-func IsRequireCall(node *Node) bool {
+// Returns true if the node is a CallExpression to the identifier 'require' with
+// exactly one argument (of the form 'require("name")').
+// This function does not test if the node is in a JavaScript file or not.
+func IsRequireCall(node *Node, requireStringLiteralLikeArgument bool) bool {
 	if !IsCallExpression(node) {
 		return false
 	}
@@ -2711,7 +2739,7 @@ func IsRequireCall(node *Node) bool {
 	if len(call.Arguments.Nodes) != 1 {
 		return false
 	}
-	return IsStringLiteralLike(call.Arguments.Nodes[0])
+	return !requireStringLiteralLikeArgument || IsStringLiteralLike(call.Arguments.Nodes[0])
 }
 
 func IsUnterminatedLiteral(node *Node) bool {
@@ -2786,7 +2814,7 @@ func IsVariableDeclarationInitializedToRequire(node *Node) bool {
 	return node.Parent.Parent.ModifierFlags()&ModifierFlagsExport == 0 &&
 		node.AsVariableDeclaration().Initializer != nil &&
 		node.Type() == nil &&
-		IsRequireCall(node.AsVariableDeclaration().Initializer)
+		IsRequireCall(node.AsVariableDeclaration().Initializer, true /*requireStringLiteralLikeArgument*/)
 }
 
 func IsModuleExportsAccessExpression(node *Node) bool {

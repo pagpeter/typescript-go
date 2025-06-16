@@ -6460,7 +6460,7 @@ func (c *Checker) checkAliasSymbol(node *ast.Node) {
 				}
 			}
 		}
-		if c.compilerOptions.VerbatimModuleSyntax.IsTrue() && !ast.IsImportEqualsDeclaration(node) && !ast.IsVariableDeclarationInitializedToRequire(node) && c.program.GetEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
+		if c.compilerOptions.VerbatimModuleSyntax.IsTrue() && !ast.IsImportEqualsDeclaration(node) && !ast.IsInJSFile(node) && c.program.GetEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
 			c.error(node, diagnostics.ESM_syntax_is_not_allowed_in_a_CommonJS_module_when_verbatimModuleSyntax_is_enabled)
 		} else if c.moduleKind == core.ModuleKindPreserve && !ast.IsImportEqualsDeclaration(node) && !ast.IsVariableDeclaration(node) && c.program.GetEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
 			// In `--module preserve`, ESM input syntax emits ESM output syntax, but there will be times
@@ -6977,7 +6977,7 @@ func (c *Checker) getQuickTypeOfExpression(node *ast.Node) *Type {
 		return nil
 	// Optimize for the common case of a call to a function with a single non-generic call
 	// signature where we can just fetch the return type without checking the arguments.
-	case ast.IsCallExpression(expr) && expr.Expression().Kind != ast.KindSuperKeyword && !ast.IsVariableDeclarationInitializedToRequire(expr.Parent) && !c.isSymbolOrSymbolForCall(expr):
+	case ast.IsCallExpression(expr) && expr.Expression().Kind != ast.KindSuperKeyword && !ast.IsRequireCall(expr, true /*requireStringLiteralLikeArgument*/) && !c.isSymbolOrSymbolForCall(expr):
 		if isCallChain(expr) {
 			return c.getReturnTypeOfSingleNonGenericSignatureOfCallChain(expr)
 		}
@@ -9064,11 +9064,12 @@ func (c *Checker) getThisArgumentType(node *ast.Node) *Type {
 }
 
 func (c *Checker) getEffectiveCheckNode(argument *ast.Node) *ast.Node {
-	argument = ast.SkipParentheses(argument)
-	if ast.IsSatisfiesExpression(argument) {
-		return ast.SkipParentheses(argument.Expression())
-	}
-	return argument
+	flags := core.IfElse(
+		ast.IsInJSFile(argument),
+		ast.OEKParentheses|ast.OEKSatisfies|ast.OEKExcludeJSDocTypeAssertion,
+		ast.OEKParentheses|ast.OEKSatisfies,
+	)
+	return ast.SkipOuterExpressions(argument, flags)
 }
 
 func (c *Checker) inferTypeArguments(node *ast.Node, signature *Signature, args []*ast.Node, checkMode CheckMode, context *InferenceContext) []*Type {
@@ -12581,6 +12582,11 @@ func (c *Checker) checkObjectLiteral(node *ast.Node, checkMode CheckMode) *Type 
 		}
 		return result
 	}
+	// expando object literals have empty properties but filled exports -- skip straight to type creation
+	if len(node.AsObjectLiteralExpression().Properties.Nodes) == 0 && node.Symbol() != nil && len(node.Symbol().Exports) > 0 {
+		propertiesTable = node.Symbol().Exports
+		return createObjectLiteralType()
+	}
 	for _, memberDecl := range node.AsObjectLiteralExpression().Properties.Nodes {
 		member := c.getSymbolOfDeclaration(memberDecl)
 		var computedNameType *Type
@@ -14426,7 +14432,7 @@ func (c *Checker) resolveExternalModule(location *ast.Node, moduleReference stri
 		contextSpecifier = location.AsModuleDeclaration().Name()
 	} else if ast.IsLiteralImportTypeNode(location) {
 		contextSpecifier = location.AsImportTypeNode().Argument.AsLiteralTypeNode().Literal
-	} else if ast.IsVariableDeclarationInitializedToRequire(location) {
+	} else if ast.IsVariableDeclaration(location) && location.AsVariableDeclaration().Initializer != nil && ast.IsRequireCall(location.AsVariableDeclaration().Initializer, true /*requireStringLiteralLikeArgument*/) {
 		contextSpecifier = location.AsVariableDeclaration().Initializer.AsCallExpression().Arguments.Nodes[0]
 	} else {
 		var ancestor *ast.Node
@@ -14888,7 +14894,7 @@ func (c *Checker) getTypeWithSyntheticDefaultImportType(t *Type, symbol *ast.Sym
 }
 
 func (c *Checker) isCommonJSRequire(node *ast.Node) bool {
-	if !ast.IsVariableDeclarationInitializedToRequire(node.Parent) {
+	if !ast.IsRequireCall(node, true /*requireStringLiteralLikeArgument*/) {
 		return false
 	}
 	if !ast.IsIdentifier(node.Expression()) {
@@ -22597,7 +22603,7 @@ func (c *Checker) getOuterTypeParametersOfClassOrInterface(symbol *ast.Symbol) [
 // Return the outer type parameters of a node or undefined if the node has no outer type parameters.
 func (c *Checker) getOuterTypeParameters(node *ast.Node, includeThisTypes bool) []*Type {
 	for {
-		node = node.Parent
+		node = ast.GetEffectiveTypeParent(node.Parent)
 		if node == nil {
 			return nil
 		}
@@ -28220,7 +28226,8 @@ func (c *Checker) getContextualTypeForAssignmentExpression(binary *ast.BinaryExp
 		expr := left.Expression()
 		switch expr.Kind {
 		case ast.KindIdentifier:
-			if symbol := c.getExportSymbolOfValueSymbolIfExported(c.getResolvedSymbol(expr)); symbol.Flags&ast.SymbolFlagsModuleExports != 0 {
+			symbol := c.getExportSymbolOfValueSymbolIfExported(c.getResolvedSymbol(expr))
+			if symbol.Flags&ast.SymbolFlagsModuleExports != 0 {
 				// No contextual type for an expression of the form 'module.exports = expr'.
 				return nil
 			}
@@ -28229,7 +28236,7 @@ func (c *Checker) getContextualTypeForAssignmentExpression(binary *ast.BinaryExp
 				// 'F.id = expr' or 'F[xxx] = expr'. If 'F' is declared as a variable with a type annotation, we can obtain a
 				// contextual type from the annotated type without triggering a circularity. Otherwise, the assignment
 				// declaration has no contextual type.
-				if symbol := c.getExportSymbolOfValueSymbolIfExported(c.getResolvedSymbol(expr)); symbol.ValueDeclaration != nil && ast.IsVariableDeclaration(symbol.ValueDeclaration) {
+				if symbol.ValueDeclaration != nil && ast.IsVariableDeclaration(symbol.ValueDeclaration) {
 					if typeNode := symbol.ValueDeclaration.Type(); typeNode != nil {
 						if ast.IsPropertyAccessExpression(left) {
 							return c.getTypeOfPropertyOfContextualType(c.getTypeFromTypeNode(typeNode), left.Name().Text())
@@ -28238,15 +28245,20 @@ func (c *Checker) getContextualTypeForAssignmentExpression(binary *ast.BinaryExp
 						if isTypeUsableAsPropertyName(nameType) {
 							return c.getTypeOfPropertyOfContextualTypeEx(c.getTypeFromTypeNode(typeNode), getPropertyNameFromType(nameType), nameType)
 						}
+						return c.getTypeOfExpression(left)
 					}
 				}
 				return nil
 			}
+		case ast.KindPropertyAccessExpression, ast.KindElementAccessExpression:
+			if binary.Symbol != nil {
+				return nil
+			}
 		case ast.KindThisKeyword:
 			var symbol *ast.Symbol
+			thisType := c.getTypeOfExpression(expr)
 			if ast.IsPropertyAccessExpression(left) {
 				name := left.Name()
-				thisType := c.getTypeOfExpression(expr)
 				if ast.IsPrivateIdentifier(name) {
 					symbol = c.getPropertyOfType(thisType, binder.GetSymbolNameForPrivateIdentifier(thisType.symbol, name.Text()))
 				} else {
@@ -28255,7 +28267,7 @@ func (c *Checker) getContextualTypeForAssignmentExpression(binary *ast.BinaryExp
 			} else {
 				propType := c.checkExpressionCached(left.AsElementAccessExpression().ArgumentExpression)
 				if isTypeUsableAsPropertyName(propType) {
-					symbol = c.getPropertyOfType(c.getTypeOfExpression(expr), getPropertyNameFromType(propType))
+					symbol = c.getPropertyOfType(thisType, getPropertyNameFromType(propType))
 				}
 			}
 			if symbol != nil {
@@ -30034,7 +30046,7 @@ func (c *Checker) getSymbolAtLocation(node *ast.Node, ignoreErrors bool) *ast.Sy
 		// 3). Require in Javascript
 		// 4). type A = import("./f/*gotToDefinitionHere*/oo")
 		if (ast.IsExternalModuleImportEqualsDeclaration(grandParent) && ast.GetExternalModuleImportEqualsDeclarationExpression(grandParent) == node) ||
-			((parent.Kind == ast.KindImportDeclaration || parent.Kind == ast.KindJSImportDeclaration || parent.Kind == ast.KindExportDeclaration) && parent.AsImportDeclaration().ModuleSpecifier == node) ||
+			((parent.Kind == ast.KindImportDeclaration || parent.Kind == ast.KindJSImportDeclaration || parent.Kind == ast.KindExportDeclaration) && ast.GetExternalModuleName(parent) == node) ||
 			ast.IsVariableDeclarationInitializedToRequire(grandParent) ||
 			(ast.IsLiteralTypeNode(parent) && ast.IsLiteralImportTypeNode(grandParent) && grandParent.AsImportTypeNode().Argument == parent) {
 			return c.resolveExternalModuleName(node, node, ignoreErrors)
