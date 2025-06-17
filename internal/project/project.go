@@ -167,6 +167,7 @@ type Project struct {
 	typingFiles              []string
 
 	// Watchers
+	watchMu                 sync.RWMutex
 	failedLookupsWatch      *watchedFiles[map[tspath.Path]string]
 	affectingLocationsWatch *watchedFiles[map[tspath.Path]string]
 	typingsFilesWatch       *watchedFiles[map[tspath.Path]string]
@@ -350,49 +351,15 @@ func (p *Project) GetLanguageServiceForRequest(ctx context.Context) (*ls.Languag
 	return languageService, cleanup
 }
 
-func (p *Project) getModuleResolutionWatchGlobs() (failedLookups map[tspath.Path]string, affectingLocaions map[tspath.Path]string) {
-	failedLookups = make(map[tspath.Path]string)
-	affectingLocaions = make(map[tspath.Path]string)
-	extractLookups(p, failedLookups, affectingLocaions, p.program.GetResolvedModules())
-	extractLookups(p, failedLookups, affectingLocaions, p.program.GetResolvedTypeReferenceDirectives())
-	return failedLookups, affectingLocaions
-}
-
-type ResolutionWithLookupLocations interface {
-	GetLookupLocations() *module.LookupLocations
-}
-
-func extractLookups[T ResolutionWithLookupLocations](
-	p *Project,
-	failedLookups map[tspath.Path]string,
-	affectingLocaions map[tspath.Path]string,
-	cache map[tspath.Path]module.ModeAwareCache[T],
-) {
-	for _, resolvedModulesInFile := range cache {
-		for _, resolvedModule := range resolvedModulesInFile {
-			for _, failedLookupLocation := range resolvedModule.GetLookupLocations().FailedLookupLocations {
-				path := p.toPath(failedLookupLocation)
-				if _, ok := failedLookups[path]; !ok {
-					failedLookups[path] = failedLookupLocation
-				}
-			}
-			for _, affectingLocation := range resolvedModule.GetLookupLocations().AffectingLocations {
-				path := p.toPath(affectingLocation)
-				if _, ok := affectingLocaions[path]; !ok {
-					affectingLocaions[path] = affectingLocation
-				}
-			}
-		}
-	}
-}
-
-func (p *Project) updateWatchers(ctx context.Context) {
+func (p *Project) updateWatchers(ctx context.Context, program *compiler.Program) {
 	client := p.Client()
 	if !p.host.IsWatchEnabled() || client == nil {
 		return
 	}
 
-	failedLookupGlobs, affectingLocationGlobs := p.getModuleResolutionWatchGlobs()
+	failedLookupGlobs, affectingLocationGlobs := getModuleResolutionWatchGlobs(program)
+	p.watchMu.Lock()
+	defer p.watchMu.Unlock()
 	p.failedLookupsWatch.update(ctx, failedLookupGlobs)
 	p.affectingLocationsWatch.update(ctx, affectingLocationGlobs)
 }
@@ -406,6 +373,8 @@ func (p *Project) updateWatchers(ctx context.Context) {
 //     part of the project, e.g., a .js file in a project without --allowJs.
 func (p *Project) onWatchEventForNilScriptInfo(fileName string) {
 	path := p.toPath(fileName)
+	p.watchMu.RLock()
+	defer p.watchMu.RUnlock()
 	if _, ok := p.failedLookupsWatch.data[path]; ok {
 		p.markAsDirty()
 	} else if _, ok := p.affectingLocationsWatch.data[path]; ok {
@@ -545,9 +514,7 @@ func (p *Project) updateGraph() (*compiler.Program, bool) {
 			})
 		}
 		p.enqueueInstallTypingsForProject(oldProgram, hasAddedOrRemovedFiles)
-		// TODO: this is currently always synchronously called by some kind of updating request,
-		// but in Strada we throttle, so at least sometimes this should be considered top-level?
-		p.updateWatchers(context.TODO())
+		go p.updateWatchers(context.TODO(), p.program)
 	}
 	p.Logf("Finishing updateGraph: Project: %s version: %d in %s", p.name, p.version, time.Since(start))
 	return p.program, true
@@ -785,10 +752,11 @@ func (p *Project) UpdateTypingFiles(typingsInfo *TypingsInfo, typingFiles []stri
 
 func (p *Project) WatchTypingLocations(files []string) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if p.isClosed() {
+		p.mu.Unlock()
 		return
 	}
+	p.mu.Unlock()
 
 	client := p.Client()
 	if !p.host.IsWatchEnabled() || client == nil {
@@ -834,6 +802,8 @@ func (p *Project) WatchTypingLocations(files []string) {
 		}
 	}
 	ctx := context.Background()
+	p.watchMu.Lock()
+	defer p.watchMu.Unlock()
 	p.typingsFilesWatch.update(ctx, typingsInstallerFileGlobs)
 	p.typingsDirectoryWatch.update(ctx, typingsInstallerDirectoryGlobs)
 }

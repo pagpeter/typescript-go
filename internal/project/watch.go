@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/microsoft/typescript-go/internal/collections"
+	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
+	"github.com/microsoft/typescript-go/internal/module"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -361,4 +363,40 @@ func isInDirectoryPath(dirComponents []string, fileOrDirComponents []string) boo
 
 func ptrTo[T any](v T) *T {
 	return &v
+}
+
+func getModuleResolutionWatchGlobs(program *compiler.Program) (failedLookups map[tspath.Path]string, affectingLocaions map[tspath.Path]string) {
+	failedLookups = make(map[tspath.Path]string)
+	affectingLocaions = make(map[tspath.Path]string)
+	extractLookups(program, failedLookups, affectingLocaions, program.GetResolvedModules())
+	extractLookups(program, failedLookups, affectingLocaions, program.GetResolvedTypeReferenceDirectives())
+	return failedLookups, affectingLocaions
+}
+
+type ResolutionWithLookupLocations interface {
+	GetLookupLocations() *module.LookupLocations
+}
+
+func extractLookups[T ResolutionWithLookupLocations](
+	program *compiler.Program,
+	failedLookups map[tspath.Path]string,
+	affectingLocaions map[tspath.Path]string,
+	cache map[tspath.Path]module.ModeAwareCache[T],
+) {
+	for _, resolvedModulesInFile := range cache {
+		for _, resolvedModule := range resolvedModulesInFile {
+			for _, failedLookupLocation := range resolvedModule.GetLookupLocations().FailedLookupLocations {
+				path := tspath.ToPath(failedLookupLocation, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+				if _, ok := failedLookups[path]; !ok {
+					failedLookups[path] = failedLookupLocation
+				}
+			}
+			for _, affectingLocation := range resolvedModule.GetLookupLocations().AffectingLocations {
+				path := tspath.ToPath(affectingLocation, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+				if _, ok := affectingLocaions[path]; !ok {
+					affectingLocaions[path] = affectingLocation
+				}
+			}
+		}
+	}
 }
