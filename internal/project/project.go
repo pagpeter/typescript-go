@@ -353,15 +353,30 @@ func (p *Project) GetLanguageServiceForRequest(ctx context.Context) (*ls.Languag
 func (p *Project) getModuleResolutionWatchGlobs() (failedLookups map[tspath.Path]string, affectingLocaions map[tspath.Path]string) {
 	failedLookups = make(map[tspath.Path]string)
 	affectingLocaions = make(map[tspath.Path]string)
-	for _, resolvedModulesInFile := range p.program.GetResolvedModules() {
+	extractLookups(p, failedLookups, affectingLocaions, p.program.GetResolvedModules())
+	extractLookups(p, failedLookups, affectingLocaions, p.program.GetResolvedTypeReferenceDirectives())
+	return failedLookups, affectingLocaions
+}
+
+type ResolutionWithLookupLocations interface {
+	GetLookupLocations() *module.LookupLocations
+}
+
+func extractLookups[T ResolutionWithLookupLocations](
+	p *Project,
+	failedLookups map[tspath.Path]string,
+	affectingLocaions map[tspath.Path]string,
+	cache map[tspath.Path]module.ModeAwareCache[T],
+) {
+	for _, resolvedModulesInFile := range cache {
 		for _, resolvedModule := range resolvedModulesInFile {
-			for _, failedLookupLocation := range resolvedModule.FailedLookupLocations {
+			for _, failedLookupLocation := range resolvedModule.GetLookupLocations().FailedLookupLocations {
 				path := p.toPath(failedLookupLocation)
 				if _, ok := failedLookups[path]; !ok {
 					failedLookups[path] = failedLookupLocation
 				}
 			}
-			for _, affectingLocation := range resolvedModule.AffectingLocations {
+			for _, affectingLocation := range resolvedModule.GetLookupLocations().AffectingLocations {
 				path := p.toPath(affectingLocation)
 				if _, ok := affectingLocaions[path]; !ok {
 					affectingLocaions[path] = affectingLocation
@@ -369,7 +384,6 @@ func (p *Project) getModuleResolutionWatchGlobs() (failedLookups map[tspath.Path
 			}
 		}
 	}
-	return failedLookups, affectingLocaions
 }
 
 func (p *Project) updateWatchers(ctx context.Context) {

@@ -113,10 +113,16 @@ func processAllProgramFiles(
 	var unsupportedExtensions []string
 
 	loader.parseTasks.collect(&loader, loader.rootTasks, func(task *parseTask, _ []tspath.Path) {
-		file := task.file
 		if task.isRedirected {
 			return
 		}
+
+		if task.isForAutomaticTypeDirective {
+			typeResolutionsInFile[task.path] = task.typeResolutionsInFile
+			return
+		}
+		file := task.file
+		path := task.path
 		if file == nil {
 			missingFiles = append(missingFiles, task.normalizedFilePath)
 			return
@@ -126,7 +132,6 @@ func processAllProgramFiles(
 		} else {
 			files = append(files, file)
 		}
-		path := file.Path()
 
 		filesByPath[path] = file
 		resolvedModules[path] = task.resolutionsInFile
@@ -189,14 +194,31 @@ func (p *fileLoader) addAutomaticTypeDirectiveTasks() {
 		containingDirectory = p.opts.Host.GetCurrentDirectory()
 	}
 	containingFileName := tspath.CombinePaths(containingDirectory, module.InferredTypesContainingFile)
+	p.rootTasks = append(p.rootTasks, &parseTask{normalizedFilePath: containingFileName, isLib: false, isForAutomaticTypeDirective: true})
+}
 
-	automaticTypeDirectiveNames := module.GetAutomaticTypeDirectiveNames(compilerOptions, p.opts.Host)
-	for _, name := range automaticTypeDirectiveNames {
-		resolved := p.resolver.ResolveTypeReferenceDirective(name, containingFileName, core.ModuleKindNodeNext, nil)
-		if resolved.IsResolved() {
-			p.rootTasks = append(p.rootTasks, &parseTask{normalizedFilePath: resolved.ResolvedFileName, isLib: false})
+func (p *fileLoader) resolveAutomaticTypeDirectives(containingFileName string) (
+	toParse []resolvedRef,
+	typeResolutionsInFile module.ModeAwareCache[*module.ResolvedTypeReferenceDirective],
+) {
+	automaticTypeDirectiveNames := module.GetAutomaticTypeDirectiveNames(p.opts.Config.CompilerOptions(), p.opts.Host)
+	if len(automaticTypeDirectiveNames) != 0 {
+		toParse = make([]resolvedRef, 0, len(automaticTypeDirectiveNames))
+		typeResolutionsInFile = make(module.ModeAwareCache[*module.ResolvedTypeReferenceDirective], len(automaticTypeDirectiveNames))
+		for _, name := range automaticTypeDirectiveNames {
+			resolutionMode := core.ModuleKindNodeNext
+			resolved := p.resolver.ResolveTypeReferenceDirective(name, containingFileName, resolutionMode, nil)
+			typeResolutionsInFile[module.ModeAwareCacheKey{Name: name, Mode: resolutionMode}] = resolved
+			if resolved.IsResolved() {
+				toParse = append(toParse, resolvedRef{
+					fileName:      resolved.ResolvedFileName,
+					increaseDepth: resolved.IsExternalLibraryImport,
+					elideOnDepth:  false,
+				})
+			}
 		}
 	}
+	return toParse, typeResolutionsInFile
 }
 
 func (p *fileLoader) addProjectReferenceTasks() {
@@ -382,7 +404,7 @@ func (p *fileLoader) resolveImportsAndModuleAugmentations(file *ast.SourceFile, 
 				continue
 			}
 
-			mode := getModeForUsageLocation(file.FileName(), meta, entry, module.GetCompilerOptionsWithRedirect(p.opts.Config.CompilerOptions(), redirect))
+			mode := getModeForUsageLocation(file.FileName(), meta, entry, optionsForFile)
 			resolvedModule := p.resolver.ResolveModuleName(moduleName, file.FileName(), mode, redirect)
 			resolutionsInFile[module.ModeAwareCacheKey{Name: moduleName, Mode: mode}] = resolvedModule
 
@@ -472,25 +494,6 @@ func getResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *modu
 	default:
 		return needAllowArbitraryExtensions()
 	}
-}
-
-func (p *fileLoader) resolveModuleNames(entries []*ast.Node, file *ast.SourceFile, meta ast.SourceFileMetaData, redirect *tsoptions.ParsedCommandLine) []*resolution {
-	if len(entries) == 0 {
-		return nil
-	}
-
-	resolvedModules := make([]*resolution, 0, len(entries))
-
-	for _, entry := range entries {
-		moduleName := entry.Text()
-		if moduleName == "" {
-			continue
-		}
-		resolvedModule := p.resolver.ResolveModuleName(moduleName, file.FileName(), getModeForUsageLocation(file.FileName(), meta, entry, module.GetCompilerOptionsWithRedirect(p.opts.Config.CompilerOptions(), redirect)), redirect)
-		resolvedModules = append(resolvedModules, &resolution{node: entry, resolvedModule: resolvedModule})
-	}
-
-	return resolvedModules
 }
 
 func (p *fileLoader) createSyntheticImport(text string, file *ast.SourceFile) *ast.Node {
