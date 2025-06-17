@@ -351,17 +351,48 @@ func (p *Project) GetLanguageServiceForRequest(ctx context.Context) (*ls.Languag
 	return languageService, cleanup
 }
 
-func (p *Project) updateWatchers(ctx context.Context, program *compiler.Program) {
+func (p *Project) updatedResolutionWatchers(ctx context.Context, program *compiler.Program) {
 	client := p.Client()
 	if !p.host.IsWatchEnabled() || client == nil {
 		return
 	}
 
-	failedLookupGlobs, affectingLocationGlobs := getModuleResolutionWatchGlobs(program)
+	failedLookups := make(map[tspath.Path]string)
+	affectingLocations := make(map[tspath.Path]string)
+	extractLookups(program, failedLookups, affectingLocations, program.GetResolvedModules())
+	extractLookups(program, failedLookups, affectingLocations, program.GetResolvedTypeReferenceDirectives())
 	p.watchMu.Lock()
 	defer p.watchMu.Unlock()
-	p.failedLookupsWatch.update(ctx, failedLookupGlobs)
-	p.affectingLocationsWatch.update(ctx, affectingLocationGlobs)
+	p.failedLookupsWatch.update(ctx, failedLookups)
+	p.affectingLocationsWatch.update(ctx, affectingLocations)
+}
+
+type ResolutionWithLookupLocations interface {
+	GetLookupLocations() *module.LookupLocations
+}
+
+func extractLookups[T ResolutionWithLookupLocations](
+	program *compiler.Program,
+	failedLookups map[tspath.Path]string,
+	affectingLocations map[tspath.Path]string,
+	allResolutions map[tspath.Path]module.ModeAwareCache[T],
+) {
+	for _, resolutionsInFile := range allResolutions {
+		for _, resolution := range resolutionsInFile {
+			for _, failedLookupLocation := range resolution.GetLookupLocations().FailedLookupLocations {
+				path := tspath.ToPath(failedLookupLocation, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+				if _, ok := failedLookups[path]; !ok {
+					failedLookups[path] = failedLookupLocation
+				}
+			}
+			for _, affectingLocation := range resolution.GetLookupLocations().AffectingLocations {
+				path := tspath.ToPath(affectingLocation, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+				if _, ok := affectingLocations[path]; !ok {
+					affectingLocations[path] = affectingLocation
+				}
+			}
+		}
+	}
 }
 
 // onWatchEventForNilScriptInfo is fired for watch events that are not the
@@ -514,7 +545,7 @@ func (p *Project) updateGraph() (*compiler.Program, bool) {
 			})
 		}
 		p.enqueueInstallTypingsForProject(oldProgram, hasAddedOrRemovedFiles)
-		go p.updateWatchers(context.TODO(), p.program)
+		go p.updatedResolutionWatchers(context.TODO(), p.program)
 	}
 	p.Logf("Finishing updateGraph: Project: %s version: %d in %s", p.name, p.version, time.Since(start))
 	return p.program, true
