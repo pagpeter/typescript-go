@@ -143,8 +143,12 @@ func (s *ScriptInfo) attachToProject(project *Project) bool {
 	}
 	s.containingProjects = append(s.containingProjects, project)
 	s.containingProjectsMu.Unlock()
-	if project.compilerOptions.PreserveSymlinks != core.TSTrue {
-		s.ensureRealpath(project)
+	if project.compilerOptions.PreserveSymlinks != core.TSTrue && s.realpath == "" {
+		realpath := project.FS().Realpath(string(s.path))
+		s.realpath = project.toPath(realpath)
+		if s.realpath != s.path {
+			project.host.DocumentStore().AddRealpathMapping(s)
+		}
 	}
 	project.onFileAddedOrRemoved()
 	return true
@@ -177,23 +181,6 @@ func (s *ScriptInfo) isOrphan() bool {
 func (s *ScriptInfo) editContent(change core.TextChange) {
 	s.setText(change.ApplyTo(s.Text()))
 	s.markContainingProjectsAsDirty()
-}
-
-func (s *ScriptInfo) ensureRealpath(project *Project) {
-	if s.realpath == "" {
-		realpath := project.FS().Realpath(string(s.path))
-		s.realpath = project.toPath(realpath)
-		if s.realpath != s.path {
-			project.host.DocumentStore().AddRealpathMapping(s)
-		}
-	}
-}
-
-func (s *ScriptInfo) getRealpathIfDifferent() (tspath.Path, bool) {
-	if s.realpath != "" && s.realpath != s.path {
-		return s.realpath, true
-	}
-	return "", false
 }
 
 func (s *ScriptInfo) detachAllProjects() {

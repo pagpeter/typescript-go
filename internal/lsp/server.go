@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ls"
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
 	"github.com/microsoft/typescript-go/internal/project"
+	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 	"golang.org/x/sync/errgroup"
 )
@@ -681,7 +682,36 @@ func (s *Server) handleDefinition(ctx context.Context, req *lsproto.RequestMessa
 func (s *Server) handleReferences(ctx context.Context, req *lsproto.RequestMessage) error {
 	// findAllReferences
 	params := req.Params.(*lsproto.ReferenceParams)
-	project := s.projectService.EnsureDefaultProjectForURI(params.TextDocument.Uri)
+	resultSet := collections.Set[lsproto.Location]{}
+	var result []*lsproto.Location
+	err := project.GetPerProjectResults(
+		s.projectService,
+		params.TextDocument.Uri,
+		ctx,
+		func(info *project.ScriptInfo, project *project.Project, ctx context.Context, filePathOfRequest tspath.Path) []*lsproto.Location {
+			return s.handleReferencesForProjectAndInfo(info, project, ctx, filePathOfRequest, req)
+		},
+		func(loc *lsproto.Location) {
+			if !resultSet.Has(*loc) {
+				resultSet.Add(*loc)
+				result = append(result, loc)
+			}
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.sendResult(req.ID, result)
+	return nil
+}
+
+func (s *Server) handleReferencesForProjectAndInfo(
+	info *project.ScriptInfo,
+	project *project.Project,
+	ctx context.Context,
+	filePathOfRequest tspath.Path,
+	req *lsproto.RequestMessage,
+) []*lsproto.Location {
 	languageService, done := project.GetLanguageServiceForRequest(ctx)
 	defer done()
 	// !!! remove this after find all references is fully ported/tested
@@ -693,9 +723,19 @@ func (s *Server) handleReferences(ctx context.Context, req *lsproto.RequestMessa
 		}
 	}()
 
-	locations := languageService.ProvideReferences(params)
-	s.sendResult(req.ID, locations)
-	return nil
+	// The project could be dirty and could no longer contain the location's file after it's updated,
+	// So check and ignore the request if program doesnt contain the file
+	if languageService.GetProgram().GetSourceFileByPath(info.Path()) == nil {
+		return nil
+	}
+
+	params := req.Params.(*lsproto.ReferenceParams)
+	if filePathOfRequest != info.Path() {
+		cloneOfParams := *params
+		cloneOfParams.TextDocument.Uri = ls.FileNameToDocumentURI(info.FileName())
+		params = &cloneOfParams
+	}
+	return languageService.ProvideReferences(params)
 }
 
 func (s *Server) handleCompletion(ctx context.Context, req *lsproto.RequestMessage) error {

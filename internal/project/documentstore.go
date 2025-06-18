@@ -1,8 +1,10 @@
 package project
 
 import (
+	"maps"
 	"sync"
 
+	"github.com/microsoft/typescript-go/internal/collections"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -20,8 +22,8 @@ type DocumentStore struct {
 	// it does not reset when creating script info again
 	filenameToScriptInfoVersion map[tspath.Path]int
 
-	realpathToScriptInfosMu sync.Mutex
-	realpathToScriptInfos   map[tspath.Path]map[*ScriptInfo]struct{}
+	realpathToScriptInfosMu sync.RWMutex
+	realpathToScriptInfos   map[tspath.Path]*collections.Set[*ScriptInfo]
 }
 
 // DocumentStoreOptions contains options for creating a DocumentStore
@@ -41,7 +43,7 @@ func NewDocumentStore(options DocumentStoreOptions) *DocumentStore {
 		},
 		scriptInfos:                 make(map[tspath.Path]*ScriptInfo),
 		filenameToScriptInfoVersion: make(map[tspath.Path]int),
-		realpathToScriptInfos:       make(map[tspath.Path]map[*ScriptInfo]struct{}),
+		realpathToScriptInfos:       make(map[tspath.Path]*collections.Set[*ScriptInfo]),
 	}
 }
 
@@ -122,11 +124,16 @@ func (ds *DocumentStore) DeleteScriptInfo(info *ScriptInfo) {
 	ds.filenameToScriptInfoVersion[info.path] = info.version
 	delete(ds.scriptInfos, info.path)
 
-	realpath := info.realpath
-	if realpath != "" {
+	if info.realpath != "" && info.realpath != info.path {
 		ds.realpathToScriptInfosMu.Lock()
-		defer ds.realpathToScriptInfosMu.Unlock()
-		delete(ds.realpathToScriptInfos[realpath], info)
+		infos, ok := ds.realpathToScriptInfos[info.realpath]
+		if ok {
+			infos.Delete(info)
+			if infos.Len() == 0 {
+				delete(ds.realpathToScriptInfos, info.realpath)
+			}
+		}
+		ds.realpathToScriptInfosMu.Unlock()
 	}
 }
 
@@ -135,12 +142,28 @@ func (ds *DocumentStore) AddRealpathMapping(info *ScriptInfo) {
 	ds.realpathToScriptInfosMu.Lock()
 	defer ds.realpathToScriptInfosMu.Unlock()
 	if scriptInfos, ok := ds.realpathToScriptInfos[info.realpath]; ok {
-		scriptInfos[info] = struct{}{}
+		scriptInfos.Add(info)
 	} else {
-		ds.realpathToScriptInfos[info.realpath] = map[*ScriptInfo]struct{}{
-			info: {},
-		}
+		var infos collections.Set[*ScriptInfo]
+		infos.Add(info)
+		ds.realpathToScriptInfos[info.realpath] = &infos
 	}
+}
+
+func (ds *DocumentStore) GetRealPathScriptInfos(info *ScriptInfo) (symlinksOfInfo map[*ScriptInfo]struct{}, realpathToSymlinks map[*ScriptInfo]struct{}) {
+	if info.realpath == "" || info.realpath == info.path {
+		return nil, nil
+	}
+	ds.realpathToScriptInfosMu.RLock()
+	defer ds.realpathToScriptInfosMu.RUnlock()
+
+	if symlinks, ok := ds.realpathToScriptInfos[info.path]; ok {
+		symlinksOfInfo = maps.Clone(symlinks.Keys())
+	}
+	if scriptInfos, ok := ds.realpathToScriptInfos[info.realpath]; ok {
+		realpathToSymlinks = maps.Clone(scriptInfos.Keys())
+	}
+	return symlinksOfInfo, realpathToSymlinks
 }
 
 // SourceFileCount returns the number of documents in the registry

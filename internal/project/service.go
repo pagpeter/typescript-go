@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/microsoft/typescript-go/internal/collections"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/ls"
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
@@ -289,6 +290,45 @@ func (s *Service) EnsureDefaultProjectForFile(fileName string) (*ScriptInfo, *Pr
 		}
 	}
 	panic("project not found")
+}
+
+type ProjectsForFile = map[*ScriptInfo]*collections.Set[*Project]
+
+func (s *Service) getProjectsForURI(url lsproto.DocumentUri) (*ScriptInfo, *Project, ProjectsForFile) {
+	info, defaultProject := s.EnsureDefaultProjectForFile(ls.DocumentURIToFileName(url))
+	projects := ProjectsForFile{}
+	var defaultProjects collections.Set[*Project]
+	defaultProjects.Add(defaultProject)
+	projects[info] = &defaultProjects
+	s.getProjectsForScriptInfo(info, projects)
+	s.getSymlinkedProjects(info, projects)
+	return info, defaultProject, projects
+}
+
+func (s *Service) getProjectsForScriptInfo(info *ScriptInfo, projects ProjectsForFile) {
+	for _, p := range info.ContainingProjects() {
+		if p.isOrphan() {
+			continue
+		}
+		infoProjects, ok := projects[info]
+		if !ok {
+			infoProjects = &collections.Set[*Project]{}
+			infoProjects.Add(p)
+			projects[info] = infoProjects
+		} else if !infoProjects.Has(p) {
+			infoProjects.Add(p)
+		}
+	}
+}
+
+func (s *Service) getSymlinkedProjects(info *ScriptInfo, projects ProjectsForFile) {
+	symlinksOfInfo, realpathToSymlinks := s.documentStore.GetRealPathScriptInfos(info)
+	for symlink := range symlinksOfInfo {
+		s.getProjectsForScriptInfo(symlink, projects)
+	}
+	for symlink := range realpathToSymlinks {
+		s.getProjectsForScriptInfo(symlink, projects)
+	}
 }
 
 func (s *Service) Close() {

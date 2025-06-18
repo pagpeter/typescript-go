@@ -20,6 +20,66 @@ func TestDefaultProjectFinder(t *testing.T) {
 		t.Skip("bundled files are not embedded")
 	}
 
+	filesForSolutionConfigFile := func(solutionRefs []string, compilerOptions string, ownFiles []string) map[string]any {
+		var compilerOptionsStr string
+		if compilerOptions != "" {
+			compilerOptionsStr = fmt.Sprintf(`"compilerOptions": {
+			%s
+		},`, compilerOptions)
+		}
+		var ownFilesStr string
+		if len(ownFiles) > 0 {
+			ownFilesStr = strings.Join(ownFiles, ",")
+		}
+		files := map[string]any{
+			"/user/username/projects/myproject/tsconfig.json": fmt.Sprintf(`{
+				%s
+				"files": [%s],
+				"references": [
+					%s
+				]
+			}`, compilerOptionsStr, ownFilesStr, stringifyReferences(solutionRefs)),
+			"/user/username/projects/myproject/tsconfig-src.json": `{
+				"compilerOptions": {
+					"composite": true,
+					"outDir": "./target",
+				},
+				"include": ["./src/**/*"]
+			}`,
+			"/user/username/projects/myproject/src/main.ts": `
+				import { foo } from './src/helpers/functions';
+				export { foo };`,
+			"/user/username/projects/myproject/src/helpers/functions.ts": `export const foo = 1;`,
+		}
+		return files
+	}
+
+	filesForIndirectProject := func(projectIndex int, compilerOptions string) map[string]any {
+		files := map[string]any{
+			fmt.Sprintf("/user/username/projects/myproject/tsconfig-indirect%d.json", projectIndex): fmt.Sprintf(`{
+				"compilerOptions": {
+					"composite": true,
+					"outDir": "./target/",
+					%s
+				},
+				"files": [
+					"./indirect%d/main.ts"
+				],
+				"references": [{
+					"path": "./tsconfig-src.json"
+				}]
+			}`, compilerOptions, projectIndex),
+			fmt.Sprintf("/user/username/projects/myproject/indirect%d/main.ts", projectIndex): `export const indirect = 1;`,
+		}
+		return files
+	}
+
+	applyIndirectProjectFiles := func(files map[string]any, projectIndex int, compilerOptions string) {
+		for k, v := range filesForIndirectProject(projectIndex, compilerOptions) {
+			files[k] = v
+		}
+	}
+
 	t.Run("when project found is solution referencing default project directly", func(t *testing.T) {
 		t.Parallel()
 		files := filesForSolutionConfigFile([]string{"./tsconfig-src.json"}, "", nil)
@@ -240,68 +300,4 @@ func TestDefaultProjectFinder(t *testing.T) {
 		_, proj := service.EnsureDefaultProjectForFile("/home/src/projects/project/src/index.d.ts")
 		assert.Equal(t, proj.Kind(), project.KindInferred)
 	})
-}
-
-func filesForSolutionConfigFile(solutionRefs []string, compilerOptions string, ownFiles []string) map[string]any {
-	var compilerOptionsStr string
-	if compilerOptions != "" {
-		compilerOptionsStr = fmt.Sprintf(`"compilerOptions": {
-			%s
-		},`, compilerOptions)
-	}
-	var ownFilesStr string
-	if len(ownFiles) > 0 {
-		ownFilesStr = strings.Join(ownFiles, ",")
-	}
-	files := map[string]any{
-		"/user/username/projects/myproject/tsconfig.json": fmt.Sprintf(`{
-			%s
-			"files": [%s],
-			"references": [
-				%s
-			]
-		}`, compilerOptionsStr, ownFilesStr, strings.Join(core.Map(solutionRefs, func(ref string) string {
-			return fmt.Sprintf(`{ "path": "%s" }`, ref)
-		}), ",")),
-		"/user/username/projects/myproject/tsconfig-src.json": `{
-			"compilerOptions": {
-				"composite": true,
-				"outDir": "./target",
-			},
-			"include": ["./src/**/*"]
-		}`,
-		"/user/username/projects/myproject/src/main.ts": `
-			import { foo } from './src/helpers/functions';
-			export { foo };`,
-		"/user/username/projects/myproject/src/helpers/functions.ts": `export const foo = 1;`,
-	}
-	return files
-}
-
-func applyIndirectProjectFiles(files map[string]any, projectIndex int, compilerOptions string) {
-	for k, v := range filesForIndirectProject(projectIndex, compilerOptions) {
-		files[k] = v
-	}
-}
-
-func filesForIndirectProject(projectIndex int, compilerOptions string) map[string]any {
-	files := map[string]any{
-		fmt.Sprintf("/user/username/projects/myproject/tsconfig-indirect%d.json", projectIndex): fmt.Sprintf(`{
-			"compilerOptions": {
-				"composite": true,
-				"outDir": "./target/",
-				%s
-			},
-			"files": [
-				"./indirect%d/main.ts"
-			],
-			"references": [
-				{
-				"path": "./tsconfig-src.json"
-				}
-			]
-		}`, compilerOptions, projectIndex),
-		fmt.Sprintf("/user/username/projects/myproject/indirect%d/main.ts", projectIndex): `export const indirect = 1;`,
-	}
-	return files
 }

@@ -21,6 +21,67 @@ func TestProjectReferencesProgram(t *testing.T) {
 		t.Skip("bundled files are not embedded")
 	}
 
+	addConfigForPackage := func(files map[string]any, packageName string, preserveSymlinks bool, references []string) {
+		compilerOptions := map[string]any{
+			"outDir":    "lib",
+			"rootDir":   "src",
+			"composite": true,
+		}
+		if preserveSymlinks {
+			compilerOptions["preserveSymlinks"] = true
+		}
+		files[fmt.Sprintf("/user/username/projects/myproject/packages/%s/tsconfig.json", packageName)] = core.Must(core.StringifyJson(map[string]any{
+			"compilerOptions": compilerOptions,
+			"include":         []string{"src"},
+			"references":      stringifyReferences(references),
+		}, "    ", "  "))
+	}
+
+	filesForSymlinkReferences := func(preserveSymlinks bool, scope string) (files map[string]any, aTest string, bFoo string, bBar string) {
+		aTest = "/user/username/projects/myproject/packages/A/src/index.ts"
+		bFoo = "/user/username/projects/myproject/packages/B/src/index.ts"
+		bBar = "/user/username/projects/myproject/packages/B/src/bar.ts"
+		files = map[string]any{
+			"/user/username/projects/myproject/packages/B/package.json": `{
+				"main": "lib/index.js",
+				"types": "lib/index.d.ts",
+			}`,
+			aTest: fmt.Sprintf(`
+				import { foo } from '%sb';
+				import { bar } from '%sb/lib/bar';
+				foo();
+				bar();
+			`, scope, scope),
+			bFoo: `export function foo() { }`,
+			bBar: `export function bar() { }`,
+			fmt.Sprintf(`/user/username/projects/myproject/node_modules/%sb`, scope): vfstest.Symlink("/user/username/projects/myproject/packages/B"),
+		}
+		addConfigForPackage(files, "A", preserveSymlinks, []string{"../B"})
+		addConfigForPackage(files, "B", preserveSymlinks, nil)
+		return files, aTest, bFoo, bBar
+	}
+
+	filesForSymlinkReferencesInSubfolder := func(preserveSymlinks bool, scope string) (files map[string]any, aTest string, bFoo string, bBar string) {
+		aTest = "/user/username/projects/myproject/packages/A/src/test.ts"
+		bFoo = "/user/username/projects/myproject/packages/B/src/foo.ts"
+		bBar = "/user/username/projects/myproject/packages/B/src/bar/foo.ts"
+		files = map[string]any{
+			"/user/username/projects/myproject/packages/B/package.json": `{}`,
+			"/user/username/projects/myproject/packages/A/src/test.ts": fmt.Sprintf(`
+				import { foo } from '%sb/lib/foo';
+				import { bar } from '%sb/lib/bar/foo';
+				foo();
+				bar();
+			`, scope, scope),
+			bFoo: `export function foo() { }`,
+			bBar: `export function bar() { }`,
+			fmt.Sprintf(`/user/username/projects/myproject/node_modules/%sb`, scope): vfstest.Symlink("/user/username/projects/myproject/packages/B"),
+		}
+		addConfigForPackage(files, "A", preserveSymlinks, []string{"../B"})
+		addConfigForPackage(files, "B", preserveSymlinks, nil)
+		return files, aTest, bFoo, bBar
+	}
+
 	t.Run("program for referenced project", func(t *testing.T) {
 		t.Parallel()
 		files := filesForReferencedProjectProgram(false)
@@ -274,71 +335,4 @@ func filesForReferencedProjectProgram(disableSourceOfProjectReferenceRedirect bo
 			export function fn5() { }
 		`,
 	}
-}
-
-func filesForSymlinkReferences(preserveSymlinks bool, scope string) (files map[string]any, aTest string, bFoo string, bBar string) {
-	aTest = "/user/username/projects/myproject/packages/A/src/index.ts"
-	bFoo = "/user/username/projects/myproject/packages/B/src/index.ts"
-	bBar = "/user/username/projects/myproject/packages/B/src/bar.ts"
-	files = map[string]any{
-		"/user/username/projects/myproject/packages/B/package.json": `{
-			"main": "lib/index.js",
-			"types": "lib/index.d.ts",
-		}`,
-		aTest: fmt.Sprintf(`
-			import { foo } from '%sb';
-			import { bar } from '%sb/lib/bar';
-			foo();
-			bar();
-		`, scope, scope),
-		bFoo: `export function foo() { }`,
-		bBar: `export function bar() { }`,
-		fmt.Sprintf(`/user/username/projects/myproject/node_modules/%sb`, scope): vfstest.Symlink("/user/username/projects/myproject/packages/B"),
-	}
-	addConfigForPackage(files, "A", preserveSymlinks, []string{"../B"})
-	addConfigForPackage(files, "B", preserveSymlinks, nil)
-	return files, aTest, bFoo, bBar
-}
-
-func filesForSymlinkReferencesInSubfolder(preserveSymlinks bool, scope string) (files map[string]any, aTest string, bFoo string, bBar string) {
-	aTest = "/user/username/projects/myproject/packages/A/src/test.ts"
-	bFoo = "/user/username/projects/myproject/packages/B/src/foo.ts"
-	bBar = "/user/username/projects/myproject/packages/B/src/bar/foo.ts"
-	files = map[string]any{
-		"/user/username/projects/myproject/packages/B/package.json": `{}`,
-		"/user/username/projects/myproject/packages/A/src/test.ts": fmt.Sprintf(`
-			import { foo } from '%sb/lib/foo';
-			import { bar } from '%sb/lib/bar/foo';
-			foo();
-			bar();
-		`, scope, scope),
-		bFoo: `export function foo() { }`,
-		bBar: `export function bar() { }`,
-		fmt.Sprintf(`/user/username/projects/myproject/node_modules/%sb`, scope): vfstest.Symlink("/user/username/projects/myproject/packages/B"),
-	}
-	addConfigForPackage(files, "A", preserveSymlinks, []string{"../B"})
-	addConfigForPackage(files, "B", preserveSymlinks, nil)
-	return files, aTest, bFoo, bBar
-}
-
-func addConfigForPackage(files map[string]any, packageName string, preserveSymlinks bool, references []string) {
-	compilerOptions := map[string]any{
-		"outDir":    "lib",
-		"rootDir":   "src",
-		"composite": true,
-	}
-	if preserveSymlinks {
-		compilerOptions["preserveSymlinks"] = true
-	}
-	var referencesToAdd []map[string]any
-	for _, ref := range references {
-		referencesToAdd = append(referencesToAdd, map[string]any{
-			"path": ref,
-		})
-	}
-	files[fmt.Sprintf("/user/username/projects/myproject/packages/%s/tsconfig.json", packageName)] = core.Must(core.StringifyJson(map[string]any{
-		"compilerOptions": compilerOptions,
-		"include":         []string{"src"},
-		"references":      referencesToAdd,
-	}, "    ", "  "))
 }
