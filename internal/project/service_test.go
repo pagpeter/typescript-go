@@ -10,6 +10,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
 	"github.com/microsoft/typescript-go/internal/project"
 	"github.com/microsoft/typescript-go/internal/testutil/projecttestutil"
+	"github.com/microsoft/typescript-go/internal/tspath"
 	"gotest.tools/v3/assert"
 )
 
@@ -82,6 +83,34 @@ func TestService(t *testing.T) {
 			assert.Equal(t, len(service.Projects()), 1)
 			project := service.Projects()[0]
 			assert.Assert(t, project.GetProgram().GetSourceFile("/home/projects/TS/p1/index.js") != nil)
+		})
+
+		t.Run("inferred project per project root", func(t *testing.T) {
+			t.Parallel()
+			files := map[string]any{
+				"/user/username/projects/project/a/file1.ts": `let x = 1;`,
+				"/user/username/projects/project/a/file2.ts": `let y = 1;`,
+				"/user/username/projects/project/b/file2.ts": `let x = 3;`,
+				"/user/username/projects/project/c/file3.ts": `let z = 4;`,
+			}
+			service, _ := projecttestutil.Setup(files, nil)
+			service.Workspace.AddFolder("/user/username/projects/project/a")
+			service.Workspace.AddFolder("/user/username/projects/project/b")
+			service.OpenFile("/user/username/projects/project/a/file1.ts", files["/user/username/projects/project/a/file1.ts"].(string), core.ScriptKindTS)
+			service.OpenFile("/user/username/projects/project/a/file2.ts", files["/user/username/projects/project/a/file2.ts"].(string), core.ScriptKindTS)
+			service.OpenFile("/user/username/projects/project/b/file2.ts", files["/user/username/projects/project/b/file2.ts"].(string), core.ScriptKindTS)
+			service.OpenFile("/user/username/projects/project/c/file3.ts", files["/user/username/projects/project/c/file3.ts"].(string), core.ScriptKindTS)
+			assert.Equal(t, len(service.Projects()), 3)
+			projecta := service.InferredProject(tspath.Path("/user/username/projects/project/a"))
+			assert.Assert(t, projecta != nil)
+			assert.Assert(t, projecta.GetProgram().GetSourceFile("/user/username/projects/project/a/file1.ts") != nil)
+			assert.Assert(t, projecta.GetProgram().GetSourceFile("/user/username/projects/project/a/file2.ts") != nil)
+			projectb := service.InferredProject(tspath.Path("/user/username/projects/project/b"))
+			assert.Assert(t, projectb != nil)
+			assert.Assert(t, projectb.GetProgram().GetSourceFile("/user/username/projects/project/b/file2.ts") != nil)
+			projectc := service.InferredProject(tspath.Path(""))
+			assert.Assert(t, projectc != nil)
+			assert.Assert(t, projectc.GetProgram().GetSourceFile("/user/username/projects/project/c/file3.ts") != nil)
 		})
 	})
 
