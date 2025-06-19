@@ -670,7 +670,7 @@ func tryGetModuleNameAsNodeModule(
 	if !packageNameOnly {
 		packageRootIndex := parts.PackageRootIndex
 		var moduleFileName string
-		for  {
+		for {
 			// If the module could be imported by a directory name, use that directory's name
 			pkgJsonResults := tryDirectoryWithPackageJson(
 				*parts,

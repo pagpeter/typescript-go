@@ -16127,7 +16127,7 @@ func (c *Checker) getBaseConstructorTypeOfClass(t *Type) *Type {
 		err := c.error(baseTypeNode.Expression(), diagnostics.Type_0_is_not_a_constructor_function_type, c.TypeToString(baseConstructorType))
 		if baseConstructorType.flags&TypeFlagsTypeParameter != 0 {
 			constraint := c.getConstraintFromTypeParameter(baseConstructorType)
-			var ctorReturn = c.unknownType
+			ctorReturn := c.unknownType
 			if constraint != nil {
 				ctorSigs := c.getSignaturesOfType(constraint, SignatureKindConstruct)
 				if len(ctorSigs) != 0 {
@@ -19115,7 +19115,7 @@ func (c *Checker) getReturnTypeFromBody(fn *ast.Node, checkMode CheckMode) *Type
 	var returnType *Type
 	var yieldType *Type
 	var nextType *Type
-	var fallbackReturnType = c.voidType
+	fallbackReturnType := c.voidType
 	switch {
 	case !ast.IsBlock(body):
 		returnType = c.checkExpressionCachedEx(body, checkMode & ^CheckModeSkipGenericFunctions)
@@ -20126,7 +20126,7 @@ func (c *Checker) getUnionSignatures(signatureLists [][]*Signature) []*Signature
 		// nature and having overloads in multiple constituents would necessitate making a power set of signatures from the type, whose
 		// ordering would be non-obvious)
 		masterList := signatureLists[indexWithLengthOverOne]
-		var results = slices.Clone(masterList)
+		results := slices.Clone(masterList)
 		for _, signatures := range signatureLists {
 			if !core.Same(signatures, masterList) {
 				signature := signatures[0]
