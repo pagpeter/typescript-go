@@ -1,0 +1,96 @@
+package compiler
+
+import (
+	"math"
+	"sync"
+
+	"github.com/microsoft/typescript-go/internal/collections"
+	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/tspath"
+)
+
+type fileLoaderWorkerTask[T any] interface {
+	comparable
+	FileName() string
+	isLoaded() bool
+	load(loader *fileLoader)
+	getSubTasks() []T
+	shouldIncreaseDepth() bool
+	shouldElideOnDepth() bool
+}
+
+type fileLoaderWorker[K fileLoaderWorkerTask[K]] struct {
+	wg              core.WorkGroup
+	tasksByFileName collections.SyncMap[string, *queuedTask[K]]
+	maxDepth        int
+}
+
+type queuedTask[K fileLoaderWorkerTask[K]] struct {
+	task        K
+	mu          sync.Mutex
+	lowestDepth int
+}
+
+func (w *fileLoaderWorker[K]) runAndWait(loader *fileLoader, tasks []K) {
+	w.start(loader, tasks, 0)
+	w.wg.RunAndWait()
+}
+
+func (w *fileLoaderWorker[K]) start(loader *fileLoader, tasks []K, depth int) {
+	for i, task := range tasks {
+		newTask := &queuedTask[K]{task: task, lowestDepth: math.MaxInt}
+		loadedTask, loaded := w.tasksByFileName.LoadOrStore(task.FileName(), newTask)
+		task = loadedTask.task
+		if loaded {
+			tasks[i] = task
+		}
+
+		currentDepth := depth
+		if task.shouldIncreaseDepth() {
+			currentDepth++
+		}
+
+		if task.shouldElideOnDepth() && currentDepth > w.maxDepth {
+			continue
+		}
+
+		w.wg.Queue(func() {
+			loadedTask.mu.Lock()
+			defer loadedTask.mu.Unlock()
+
+			if !task.isLoaded() {
+				task.load(loader)
+			}
+
+			if currentDepth < loadedTask.lowestDepth {
+				// If we're seeing this task at a lower depth than before,
+				// reprocess its subtasks to ensure they are loaded.
+				loadedTask.lowestDepth = currentDepth
+				subTasks := task.getSubTasks()
+				w.start(loader, subTasks, currentDepth)
+			}
+		})
+	}
+}
+
+func (w *fileLoaderWorker[K]) collect(loader *fileLoader, tasks []K, iterate func(K, []tspath.Path)) []tspath.Path {
+	return w.collectWorker(loader, tasks, iterate, collections.Set[K]{})
+}
+
+func (w *fileLoaderWorker[K]) collectWorker(loader *fileLoader, tasks []K, iterate func(K, []tspath.Path), seen collections.Set[K]) []tspath.Path {
+	var results []tspath.Path
+	for _, task := range tasks {
+		// ensure we only walk each task once
+		if !task.isLoaded() || seen.Has(task) {
+			continue
+		}
+		seen.Add(task)
+		var subResults []tspath.Path
+		if subTasks := task.getSubTasks(); len(subTasks) > 0 {
+			subResults = w.collectWorker(loader, subTasks, iterate, seen)
+		}
+		iterate(task, subResults)
+		results = append(results, loader.toPath(task.FileName()))
+	}
+	return results
+}

@@ -65,20 +65,17 @@ func parseNumber(value any) *int {
 	return nil
 }
 
-func parseProjectReference(json any) []core.ProjectReference {
-	var result []core.ProjectReference
+func parseProjectReference(json any) []*core.ProjectReference {
+	var result []*core.ProjectReference
 	if v, ok := json.(*collections.OrderedMap[string, any]); ok {
 		var reference core.ProjectReference
 		if v, ok := v.Get("path"); ok {
 			reference.Path = v.(string)
 		}
-		if v, ok := v.Get("originalPath"); ok {
-			reference.OriginalPath = v.(string)
-		}
 		if v, ok := v.Get("circular"); ok {
 			reference.Circular = v.(bool)
 		}
-		result = append(result, reference)
+		result = append(result, &reference)
 	}
 	return result
 }
@@ -219,6 +216,8 @@ func parseCompilerOptions(key string, value any, allOptions *core.CompilerOption
 		allOptions.Declaration = parseTristate(value)
 	case "downlevelIteration":
 		allOptions.DownlevelIteration = parseTristate(value)
+	case "erasableSyntaxOnly":
+		allOptions.ErasableSyntaxOnly = parseTristate(value)
 	case "emitDeclarationOnly":
 		allOptions.EmitDeclarationOnly = parseTristate(value)
 	case "extendedDiagnostics":
@@ -273,6 +272,8 @@ func parseCompilerOptions(key string, value any, allOptions *core.CompilerOption
 		} else {
 			allOptions.Lib = parseStringArray(value)
 		}
+	case "libReplacement":
+		allOptions.LibReplacement = parseTristate(value)
 	case "listEmittedFiles":
 		allOptions.ListEmittedFiles = parseTristate(value)
 	case "listFiles":

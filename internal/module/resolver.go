@@ -63,18 +63,14 @@ func newResolutionState(
 	isTypeReferenceDirective bool,
 	resolutionMode core.ResolutionMode,
 	compilerOptions *core.CompilerOptions,
-	redirectedReference *ResolvedProjectReference,
+	redirectedReference ResolvedProjectReference,
 	resolver *Resolver,
 ) *resolutionState {
 	state := &resolutionState{
 		name:                name,
 		containingDirectory: containingDirectory,
-		compilerOptions:     compilerOptions,
+		compilerOptions:     GetCompilerOptionsWithRedirect(compilerOptions, redirectedReference),
 		resolver:            resolver,
-	}
-
-	if redirectedReference != nil {
-		state.compilerOptions = redirectedReference.CommandLine.CompilerOptions
 	}
 
 	if isTypeReferenceDirective {
@@ -105,21 +101,37 @@ func newResolutionState(
 	return state
 }
 
+func GetCompilerOptionsWithRedirect(compilerOptions *core.CompilerOptions, redirectedReference ResolvedProjectReference) *core.CompilerOptions {
+	if redirectedReference == nil {
+		return compilerOptions
+	}
+	if optionsFromRedirect := redirectedReference.CompilerOptions(); optionsFromRedirect != nil {
+		return optionsFromRedirect
+	}
+	return compilerOptions
+}
+
 type Resolver struct {
 	caches
 	host            ResolutionHost
 	compilerOptions *core.CompilerOptions
+	typingsLocation string
+	projectName     string
 	// reportDiagnostic: DiagnosticReporter
 }
 
 func NewResolver(
 	host ResolutionHost,
 	options *core.CompilerOptions,
+	typingsLocation string,
+	projectName string,
 ) *Resolver {
 	return &Resolver{
 		host:            host,
 		caches:          newCaches(host.GetCurrentDirectory(), host.FS().UseCaseSensitiveFileNames(), options),
 		compilerOptions: options,
+		typingsLocation: typingsLocation,
+		projectName:     projectName,
 	}
 }
 
@@ -131,44 +143,40 @@ func (r *Resolver) GetPackageScopeForPath(directory string) *packagejson.InfoCac
 	return (&resolutionState{compilerOptions: r.compilerOptions, resolver: r}).getPackageScopeForPath(directory)
 }
 
-func (r *Resolver) GetPackageJsonTypeIfApplicable(path string) string {
+func (r *Resolver) GetPackageJsonScopeIfApplicable(path string) *packagejson.InfoCacheEntry {
 	if tspath.FileExtensionIsOneOf(path, []string{tspath.ExtensionMts, tspath.ExtensionCts, tspath.ExtensionMjs, tspath.ExtensionCjs}) {
-		return ""
+		return nil
 	}
 
-	var moduleResolutionKind core.ModuleResolutionKind
-	if r.compilerOptions != nil {
-		moduleResolutionKind = r.compilerOptions.GetModuleResolutionKind()
+	moduleResolutionKind := r.compilerOptions.GetModuleResolutionKind()
+	if core.ModuleResolutionKindNode16 <= moduleResolutionKind && moduleResolutionKind <= core.ModuleResolutionKindNodeNext || strings.Contains(path, "/node_modules/") {
+		return r.GetPackageScopeForPath(tspath.GetDirectoryPath(path))
 	}
 
-	var packageJsonType string
-	shouldLookupFromPackageJson := core.ModuleResolutionKindNode16 <= moduleResolutionKind && moduleResolutionKind <= core.ModuleResolutionKindNodeNext || strings.Contains(path, "/node_modules/")
-	if shouldLookupFromPackageJson {
-		packageJsonScope := r.GetPackageScopeForPath(tspath.GetDirectoryPath(path))
-		if packageJsonScope.Exists() {
-			packageJsonType, _ = packageJsonScope.Contents.Type.GetValue()
-		}
-	}
-
-	return packageJsonType
+	return nil
 }
 
-func (r *Resolver) ResolveTypeReferenceDirective(typeReferenceDirectiveName string, containingFile string, resolutionMode core.ResolutionMode, redirectedReference *ResolvedProjectReference) *ResolvedTypeReferenceDirective {
+func (r *Resolver) traceResolutionUsingProjectReference(redirectedReference ResolvedProjectReference) {
+	if redirectedReference != nil && redirectedReference.CompilerOptions() != nil {
+		r.host.Trace(diagnostics.Using_compiler_options_of_project_reference_redirect_0.Format(redirectedReference.ConfigName()))
+	}
+}
+
+func (r *Resolver) ResolveTypeReferenceDirective(
+	typeReferenceDirectiveName string,
+	containingFile string,
+	resolutionMode core.ResolutionMode,
+	redirectedReference ResolvedProjectReference,
+) *ResolvedTypeReferenceDirective {
 	traceEnabled := r.traceEnabled()
 
-	compilerOptions := r.compilerOptions
-	if redirectedReference != nil {
-		compilerOptions = redirectedReference.CommandLine.CompilerOptions
-	}
-
+	compilerOptions := GetCompilerOptionsWithRedirect(r.compilerOptions, redirectedReference)
 	containingDirectory := tspath.GetDirectoryPath(containingFile)
 
 	typeRoots, fromConfig := compilerOptions.GetEffectiveTypeRoots(r.host.GetCurrentDirectory())
 	if traceEnabled {
 		r.host.Trace(diagnostics.Resolving_type_reference_directive_0_containing_file_1_root_directory_2.Format(typeReferenceDirectiveName, containingFile, strings.Join(typeRoots, ",")))
-		if redirectedReference != nil {
-			r.host.Trace(diagnostics.Using_compiler_options_of_project_reference_redirect_0.Format(redirectedReference.SourceFile.FileName()))
-		}
+		r.traceResolutionUsingProjectReference(redirectedReference)
 	}
 
 	state := newResolutionState(typeReferenceDirectiveName, containingDirectory, true /*isTypeReferenceDirective*/, resolutionMode, compilerOptions, redirectedReference, r)
@@ -180,19 +188,12 @@ func (r *Resolver) ResolveTypeReferenceDirective(typeReferenceDirectiveName stri
 	return result
 }
 
-func (r *Resolver) ResolveModuleName(moduleName string, containingFile string, resolutionMode core.ResolutionMode, redirectedReference *ResolvedProjectReference) *ResolvedModule {
+func (r *Resolver) ResolveModuleName(moduleName string, containingFile string, resolutionMode core.ResolutionMode, redirectedReference ResolvedProjectReference) *ResolvedModule {
 	traceEnabled := r.traceEnabled()
-
-	compilerOptions := r.compilerOptions
-	if redirectedReference != nil {
-		compilerOptions = redirectedReference.CommandLine.CompilerOptions
-	}
-
+	compilerOptions := GetCompilerOptionsWithRedirect(r.compilerOptions, redirectedReference)
 	if traceEnabled {
 		r.host.Trace(diagnostics.Resolving_module_0_from_1.Format(moduleName, containingFile))
-		if redirectedReference != nil {
-			r.host.Trace(diagnostics.Using_compiler_options_of_project_reference_redirect_0.Format(redirectedReference.SourceFile.FileName()))
-		}
+		r.traceResolutionUsingProjectReference(redirectedReference)
 	}
 	containingDirectory := tspath.GetDirectoryPath(containingFile)
 
@@ -229,6 +230,36 @@ func (r *Resolver) ResolveModuleName(moduleName string, containingFile string, r
 		}
 	}
 
+	return r.tryResolveFromTypingsLocation(moduleName, containingDirectory, result)
+}
+
+func (r *Resolver) tryResolveFromTypingsLocation(moduleName string, containingDirectory string, originalResult *ResolvedModule) *ResolvedModule {
+	if r.typingsLocation == "" ||
+		tspath.IsExternalModuleNameRelative(moduleName) ||
+		(originalResult.ResolvedFileName != "" && tspath.ExtensionIsOneOf(originalResult.Extension, tspath.SupportedTSExtensionsWithJsonFlat)) {
+		return originalResult
+	}
+
+	state := newResolutionState(
+		moduleName,
+		containingDirectory,
+		false,               /*isTypeReferenceDirective*/
+		core.ModuleKindNone, // resolutionMode,
+		r.compilerOptions,
+		nil, // redirectedReference,
+		r,
+	)
+	if r.traceEnabled() {
+		r.host.Trace(diagnostics.Auto_discovery_for_typings_is_enabled_in_project_0_Running_extra_resolution_pass_for_module_1_using_cache_location_2.Format(r.projectName, moduleName, r.typingsLocation))
+	}
+	globalResolved := state.loadModuleFromImmediateNodeModulesDirectory(extensionsDeclaration, r.typingsLocation, false)
+	if globalResolved == nil {
+		return originalResult
+	}
+	result := state.createResolvedModule(globalResolved, true)
+	result.FailedLookupLocations = append(originalResult.FailedLookupLocations, result.FailedLookupLocations...)
+	result.AffectingLocations = append(originalResult.AffectingLocations, result.AffectingLocations...)
+	result.ResolutionDiagnostics = append(originalResult.ResolutionDiagnostics, result.ResolutionDiagnostics...)
 	return result
 }
 
@@ -835,7 +866,7 @@ func (r *resolutionState) loadModuleFromSpecificNodeModulesDirectory(ext extensi
 			r.esmMode {
 			// EsmMode disables index lookup in `loadNodeModuleFromDirectoryWorker` generally, however non-relative package resolutions still assume
 			// a default `index.js` entrypoint if no `main` or `exports` are present
-			if indexResult := r.loadModuleFromFile(extensions, tspath.CombinePaths(candidate, "index"), onlyRecordFailures); !indexResult.shouldContinueSearching() {
+			if indexResult := r.loadModuleFromFile(extensions, tspath.CombinePaths(candidate, "index.js"), onlyRecordFailures); !indexResult.shouldContinueSearching() {
 				indexResult.packageId = r.getPackageId(packageDirectory, packageInfo)
 				return indexResult
 			}
@@ -1624,7 +1655,7 @@ func moveToNextDirectorySeparatorIfAvailable(path string, prevSeparatorIndex int
 }
 
 type ParsedPatterns struct {
-	matchableStringSet core.Set[string]
+	matchableStringSet collections.Set[string]
 	patterns           []core.Pattern
 }
 
@@ -1647,12 +1678,12 @@ func TryParsePatterns(pathMappings *collections.OrderedMap[string, []string]) *P
 	numMatchables := pathMappings.Size() - numPatterns
 
 	var patterns []core.Pattern
-	var matchableStringSet core.Set[string]
+	var matchableStringSet collections.Set[string]
 	if numPatterns != 0 {
 		patterns = make([]core.Pattern, 0, numPatterns)
 	}
 	if numMatchables != 0 {
-		matchableStringSet = *core.NewSetWithSizeHint[string](numMatchables)
+		matchableStringSet = *collections.NewSetWithSizeHint[string](numMatchables)
 	}
 
 	for path := range paths {
@@ -1718,7 +1749,7 @@ func extensionIsOk(extensions extensions, extension string) bool {
 }
 
 func ResolveConfig(moduleName string, containingFile string, host ResolutionHost) *ResolvedModule {
-	resolver := NewResolver(host, &core.CompilerOptions{ModuleResolution: core.ModuleResolutionKindNodeNext})
+	resolver := NewResolver(host, &core.CompilerOptions{ModuleResolution: core.ModuleResolutionKindNodeNext}, "", "")
 	return resolver.resolveConfig(moduleName, containingFile)
 }
 

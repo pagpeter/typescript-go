@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/parser"
-	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
@@ -61,12 +61,11 @@ func DoJSEmitBaseline(
 			jsCode.WriteString("\r\n")
 		}
 		if len(result.Diagnostics) == 0 && strings.HasSuffix(file.UnitName, tspath.ExtensionJson) {
-			fileParseResult := parser.ParseSourceFile(
-				file.UnitName,
-				tspath.Path(file.UnitName),
-				file.Content,
-				options.GetEmitScriptTarget(),
-				scanner.JSDocParsingModeParseAll)
+			fileParseResult := parser.ParseSourceFile(ast.SourceFileParseOptions{
+				FileName:        file.UnitName,
+				Path:            tspath.Path(file.UnitName),
+				CompilerOptions: options.SourceFileAffecting(),
+			}, file.Content, core.ScriptKindJSON)
 			if len(fileParseResult.Diagnostics()) > 0 {
 				jsCode.WriteString(getErrorBaseline(t, []*harnessutil.TestFile{file}, fileParseResult.Diagnostics(), false /*pretty*/))
 				continue
@@ -216,7 +215,7 @@ func prepareDeclarationCompilationContext(
 		////outFile := options.OutFile;
 		////if len(outFile) == 0 {
 		if len(options.OutDir) != 0 {
-			sourceFilePath := tspath.GetNormalizedAbsolutePath(sourceFile.FileName(), result.Program.Host().GetCurrentDirectory())
+			sourceFilePath := tspath.GetNormalizedAbsolutePath(sourceFile.FileName(), result.Program.GetCurrentDirectory())
 			sourceFilePath = strings.Replace(sourceFilePath, result.Program.CommonSourceDirectory(), "", 1)
 			sourceFileName = tspath.CombinePaths(options.OutDir, sourceFilePath)
 		} else {
@@ -281,7 +280,8 @@ func compileDeclarationFiles(t *testing.T, context *declarationCompilationContex
 		context.harnessSettings,
 		context.options,
 		context.currentDirectory,
-		symlinks)
+		symlinks,
+		nil)
 	return &declarationCompilationResult{
 		context.declInputFiles,
 		context.declOtherFiles,

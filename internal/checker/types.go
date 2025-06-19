@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go tool golang.org/x/tools/cmd/stringer -type=SignatureKind -output=stringer_generated.go
+//go:generate go tool mvdan.cc/gofumpt -lang=go1.24 -w stringer_generated.go
 
 // ParseFlags
 
@@ -63,6 +64,7 @@ const (
 	TypeFormatFlagsUseSingleQuotesForStringLiteralType TypeFormatFlags = 1 << 28 // Use single quotes for string literal type
 	TypeFormatFlagsNoTypeReduction                     TypeFormatFlags = 1 << 29 // Don't call getReducedType
 	TypeFormatFlagsOmitThisParameter                   TypeFormatFlags = 1 << 25
+	TypeFormatFlagsWriteCallStyleSignature             TypeFormatFlags = 1 << 27 // Write construct signatures as call style signatures
 	// Error Handling
 	TypeFormatFlagsAllowUniqueESSymbolType TypeFormatFlags = 1 << 20 // This is bit 20 to align with the same bit in `NodeBuilderFlags`
 	// TypeFormatFlags exclusive
@@ -393,6 +395,7 @@ type SourceFileLinks struct {
 	localJsxFragmentNamespace string
 	localJsxFactory           *ast.EntityName
 	localJsxFragmentFactory   *ast.EntityName
+	jsxFragmentType           *Type
 }
 
 // Signature specific links
@@ -424,18 +427,18 @@ const (
 	TypeFlagsUniqueESSymbol  TypeFlags = 1 << 14 // unique symbol
 	TypeFlagsEnumLiteral     TypeFlags = 1 << 15 // Always combined with StringLiteral, NumberLiteral, or Union
 	TypeFlagsEnum            TypeFlags = 1 << 16 // Numeric computed enum member value (must be right after EnumLiteral, see getSortOrderFlags)
-	TypeFlagsNever           TypeFlags = 1 << 17 // Never type
-	TypeFlagsTypeParameter   TypeFlags = 1 << 18 // Type parameter
-	TypeFlagsObject          TypeFlags = 1 << 19 // Object type
-	TypeFlagsUnion           TypeFlags = 1 << 20 // Union (T | U)
-	TypeFlagsIntersection    TypeFlags = 1 << 21 // Intersection (T & U)
-	TypeFlagsIndex           TypeFlags = 1 << 22 // keyof T
-	TypeFlagsIndexedAccess   TypeFlags = 1 << 23 // T[K]
-	TypeFlagsConditional     TypeFlags = 1 << 24 // T extends U ? X : Y
-	TypeFlagsSubstitution    TypeFlags = 1 << 25 // Type parameter substitution
-	TypeFlagsNonPrimitive    TypeFlags = 1 << 26 // intrinsic object type
-	TypeFlagsTemplateLiteral TypeFlags = 1 << 27 // Template literal type
-	TypeFlagsStringMapping   TypeFlags = 1 << 28 // Uppercase/Lowercase type
+	TypeFlagsNonPrimitive    TypeFlags = 1 << 17 // intrinsic object type
+	TypeFlagsNever           TypeFlags = 1 << 18 // Never type
+	TypeFlagsTypeParameter   TypeFlags = 1 << 19 // Type parameter
+	TypeFlagsObject          TypeFlags = 1 << 20 // Object type
+	TypeFlagsIndex           TypeFlags = 1 << 21 // keyof T
+	TypeFlagsIndexedAccess   TypeFlags = 1 << 22 // T[K]
+	TypeFlagsConditional     TypeFlags = 1 << 23 // T extends U ? X : Y
+	TypeFlagsSubstitution    TypeFlags = 1 << 24 // Type parameter substitution
+	TypeFlagsTemplateLiteral TypeFlags = 1 << 25 // Template literal type
+	TypeFlagsStringMapping   TypeFlags = 1 << 26 // Uppercase/Lowercase type
+	TypeFlagsUnion           TypeFlags = 1 << 27 // Union (T | U)
+	TypeFlagsIntersection    TypeFlags = 1 << 28 // Intersection (T & U)
 	TypeFlagsReserved1       TypeFlags = 1 << 29 // Used by union/intersection type construction
 	TypeFlagsReserved2       TypeFlags = 1 << 30 // Used by union/intersection type construction
 	TypeFlagsReserved3       TypeFlags = 1 << 31
@@ -587,6 +590,10 @@ func (t *Type) Flags() TypeFlags {
 	return t.flags
 }
 
+func (t *Type) ObjectFlags() ObjectFlags {
+	return t.objectFlags
+}
+
 // Casts for concrete struct types
 
 func (t *Type) AsIntrinsicType() *IntrinsicType             { return t.data.(*IntrinsicType) }
@@ -727,6 +734,10 @@ func (t *Type) IsTypeParameter() bool {
 	return t.flags&TypeFlagsTypeParameter != 0
 }
 
+func (t *Type) IsIndex() bool {
+	return t.flags&TypeFlagsIndex != 0
+}
+
 // TypeData
 
 type TypeData interface {
@@ -776,7 +787,7 @@ func (t *LiteralType) Value() any {
 }
 
 func (t *LiteralType) String() string {
-	return ValueToString(t)
+	return ValueToString(t.value)
 }
 
 // UniqueESSymbolTypeData
@@ -939,6 +950,8 @@ type TupleElementInfo struct {
 	labeledDeclaration *ast.Node // NamedTupleMember | ParameterDeclaration | nil
 }
 
+func (t *TupleElementInfo) TupleElementFlags() ElementFlags { return t.flags }
+
 type TupleType struct {
 	InterfaceType
 	elementInfos  []TupleElementInfo
@@ -946,6 +959,15 @@ type TupleType struct {
 	fixedLength   int // Number of initial required or optional elements
 	combinedFlags ElementFlags
 	readonly      bool
+}
+
+func (t *TupleType) FixedLength() int { return t.fixedLength }
+func (t *TupleType) ElementFlags() []ElementFlags {
+	elementFlags := make([]ElementFlags, len(t.elementInfos))
+	for i, info := range t.elementInfos {
+		elementFlags[i] = info.flags
+	}
+	return elementFlags
 }
 
 // SingleSignatureType
@@ -1145,6 +1167,30 @@ type Signature struct {
 	mapper                   *TypeMapper
 	isolatedSignatureType    *Type
 	composite                *CompositeSignature
+}
+
+func (s *Signature) TypeParameters() []*Type {
+	return s.typeParameters
+}
+
+func (s *Signature) Declaration() *ast.Node {
+	return s.declaration
+}
+
+func (s *Signature) Target() *Signature {
+	return s.target
+}
+
+func (s *Signature) ThisParameter() *ast.Symbol {
+	return s.thisParameter
+}
+
+func (s *Signature) Parameters() []*ast.Symbol {
+	return s.parameters
+}
+
+func (s *Signature) HasRestParameter() bool {
+	return s.flags&SignatureFlagsHasRestParameter != 0
 }
 
 type CompositeSignature struct {

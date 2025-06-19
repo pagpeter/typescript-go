@@ -4,7 +4,7 @@
 
 ## Preview
 
-A preview build is available on npm as `@typescript/native-preview`.
+A preview build is available on npm as [`@typescript/native-preview`](https://www.npmjs.com/package/@typescript/native-preview).
 
 ```sh
 npm install @typescript/native-preview
@@ -84,7 +84,7 @@ This is still a work in progress and is not yet at full feature parity with Type
 | Type checking | done | Same errors, locations, and messages as TS5.8. Types printback in errors may display differently (in progress) |
 | JavaScript-specific inference and JS Doc | not ready | - |
 | JSX | done | - |
-| Declaration emit | not ready | Coming soon |
+| Declaration emit | in progress | Most common features are in place, but some edge cases and feature flags are still unhandled |
 | Emit (JS output) | in progress | `target: esnext` well-supported, other targets may have gaps |
 | Watch mode | prototype | Watches files and rebuilds, but no incremental rechecking |
 | Build mode / project references | not ready | - |
