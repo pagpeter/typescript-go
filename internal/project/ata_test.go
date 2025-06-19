@@ -34,7 +34,7 @@ func TestAta(t *testing.T) {
 				TypesRegistry: []string{"config"},
 			},
 		})
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		assert.Equal(t, len(service.Projects()), 1)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		assert.Equal(t, p.Kind(), project.KindConfigured)
@@ -70,7 +70,7 @@ func TestAta(t *testing.T) {
 				},
 			},
 		})
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		assert.Equal(t, len(service.Projects()), 1)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		assert.Equal(t, p.Kind(), project.KindConfigured)
@@ -108,7 +108,7 @@ func TestAta(t *testing.T) {
 				},
 			},
 		})
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		assert.Equal(t, len(service.Projects()), 1)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		assert.Equal(t, p.Kind(), project.KindInferred)
@@ -142,7 +142,7 @@ func TestAta(t *testing.T) {
 				TypesRegistry: []string{"jquery"},
 			},
 		})
-		service.OpenFile("/user/username/projects/project/jquery.js", files["/user/username/projects/project/jquery.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/jquery.js", files["/user/username/projects/project/jquery.js"].(string), core.ScriptKindJS)
 		assert.Equal(t, len(service.Projects()), 1)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/jquery.js")
 		assert.Equal(t, p.Kind(), project.KindConfigured)
@@ -170,7 +170,7 @@ func TestAta(t *testing.T) {
 				TypesRegistry: []string{"node"},
 			},
 		})
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		assert.Equal(t, len(service.Projects()), 1)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		assert.Equal(t, p.Kind(), project.KindConfigured)
@@ -210,8 +210,8 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project1/app.js", files["/user/username/projects/project1/app.js"].(string), core.ScriptKindJS, "")
-		service.OpenFile("/user/username/projects/project2/app.js", files["/user/username/projects/project2/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project1/app.js", files["/user/username/projects/project1/app.js"].(string), core.ScriptKindJS)
+		service.OpenFile("/user/username/projects/project2/app.js", files["/user/username/projects/project2/app.js"].(string), core.ScriptKindJS)
 		_, p1 := service.EnsureDefaultProjectForFile("/user/username/projects/project1/app.js")
 		_, p2 := service.EnsureDefaultProjectForFile("/user/username/projects/project2/app.js")
 		var installStatuses []project.TypingsInstallerStatus
@@ -271,8 +271,8 @@ func TestAta(t *testing.T) {
 			}
 		}
 
-		service.OpenFile("/user/username/projects/project1/app.js", files["/user/username/projects/project1/app.js"].(string), core.ScriptKindJS, "")
-		service.OpenFile("/user/username/projects/project2/app.js", files["/user/username/projects/project2/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project1/app.js", files["/user/username/projects/project1/app.js"].(string), core.ScriptKindJS)
+		service.OpenFile("/user/username/projects/project2/app.js", files["/user/username/projects/project2/app.js"].(string), core.ScriptKindJS)
 		_, p1 := service.EnsureDefaultProjectForFile("/user/username/projects/project1/app.js")
 		_, p2 := service.EnsureDefaultProjectForFile("/user/username/projects/project2/app.js")
 		// Order is determinate since second install will run only after completing first one
@@ -310,7 +310,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -352,7 +352,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -394,7 +394,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -436,7 +436,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -463,7 +463,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -495,7 +495,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -522,7 +522,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -571,7 +571,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -602,7 +602,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -651,7 +651,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -697,7 +697,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -745,7 +745,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
@@ -791,7 +791,7 @@ func TestAta(t *testing.T) {
 			},
 		})
 
-		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS, "")
+		service.OpenFile("/user/username/projects/project/app.js", files["/user/username/projects/project/app.js"].(string), core.ScriptKindJS)
 		_, p := service.EnsureDefaultProjectForFile("/user/username/projects/project/app.js")
 		// Order is determinate since second install will run only after completing first one
 		status := <-host.ServiceOptions.InstallStatus
