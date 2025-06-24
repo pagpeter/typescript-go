@@ -133,11 +133,11 @@ func createResolutionLookupGlobMapper(host ProjectHost) func(data map[tspath.Pat
 
 			dir := w.dir
 			if w.packageDir != nil && w.packageDirPath != nil {
-				real := host.FS().Realpath(*w.packageDir)
-				realPath := tspath.ToPath(real, "", host.FS().UseCaseSensitiveFileNames())
+				realDir := host.FS().Realpath(*w.packageDir)
+				realPath := tspath.ToPath(realDir, "", host.FS().UseCaseSensitiveFileNames())
 
 				if realPath != *w.packageDirPath {
-					dir = real
+					dir = realDir
 				}
 			}
 
