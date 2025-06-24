@@ -904,8 +904,7 @@ func newParentInChildrenSetter() func(node *Node) bool {
 	}
 
 	state.visit = func(node *Node) bool {
-		if state.parent != nil && node.Parent != state.parent {
-			// Avoid data races on no-ops
+		if state.parent != nil {
 			node.Parent = state.parent
 		}
 		saveParent := state.parent
@@ -1611,13 +1610,12 @@ func IsEffectiveExternalModule(node *SourceFile, compilerOptions *core.CompilerO
 }
 
 func isCommonJSContainingModuleKind(kind core.ModuleKind) bool {
-	return kind == core.ModuleKindCommonJS || kind == core.ModuleKindNode16 || kind == core.ModuleKindNodeNext
+	return kind == core.ModuleKindCommonJS || core.ModuleKindNode16 <= kind && kind <= core.ModuleKindNodeNext
 }
 
 func IsExternalModuleIndicator(node *Statement) bool {
-	return HasSyntacticModifier(node, ModifierFlagsExport) ||
-		IsImportEqualsDeclaration(node) && IsExternalModuleReference(node.AsImportEqualsDeclaration().ModuleReference) ||
-		IsImportDeclaration(node) || IsExportAssignment(node) || IsExportDeclaration(node)
+	// Exported top-level member indicates moduleness
+	return IsAnyImportOrReExport(node) || IsExportAssignment(node) || HasSyntacticModifier(node, ModifierFlagsExport)
 }
 
 func IsExportNamespaceAsDefaultDeclaration(node *Node) bool {
@@ -2549,7 +2547,7 @@ func GetImpliedNodeFormatForFile(path string, packageJsonType string) core.Modul
 	return impliedNodeFormat
 }
 
-func GetEmitModuleFormatOfFileWorker(fileName string, options *core.CompilerOptions, sourceFileMetaData *SourceFileMetaData) core.ModuleKind {
+func GetEmitModuleFormatOfFileWorker(fileName string, options *core.CompilerOptions, sourceFileMetaData SourceFileMetaData) core.ModuleKind {
 	result := GetImpliedNodeFormatForEmitWorker(fileName, options.GetEmitModuleKind(), sourceFileMetaData)
 	if result != core.ModuleKindNone {
 		return result
@@ -2557,19 +2555,16 @@ func GetEmitModuleFormatOfFileWorker(fileName string, options *core.CompilerOpti
 	return options.GetEmitModuleKind()
 }
 
-func GetImpliedNodeFormatForEmitWorker(fileName string, emitModuleKind core.ModuleKind, sourceFileMetaData *SourceFileMetaData) core.ResolutionMode {
+func GetImpliedNodeFormatForEmitWorker(fileName string, emitModuleKind core.ModuleKind, sourceFileMetaData SourceFileMetaData) core.ResolutionMode {
 	if core.ModuleKindNode16 <= emitModuleKind && emitModuleKind <= core.ModuleKindNodeNext {
-		if sourceFileMetaData == nil {
-			return core.ModuleKindNone
-		}
 		return sourceFileMetaData.ImpliedNodeFormat
 	}
-	if sourceFileMetaData != nil && sourceFileMetaData.ImpliedNodeFormat == core.ModuleKindCommonJS &&
+	if sourceFileMetaData.ImpliedNodeFormat == core.ModuleKindCommonJS &&
 		(sourceFileMetaData.PackageJsonType == "commonjs" ||
 			tspath.FileExtensionIsOneOf(fileName, []string{tspath.ExtensionCjs, tspath.ExtensionCts})) {
 		return core.ModuleKindCommonJS
 	}
-	if sourceFileMetaData != nil && sourceFileMetaData.ImpliedNodeFormat == core.ModuleKindESNext &&
+	if sourceFileMetaData.ImpliedNodeFormat == core.ModuleKindESNext &&
 		(sourceFileMetaData.PackageJsonType == "module" ||
 			tspath.FileExtensionIsOneOf(fileName, []string{tspath.ExtensionMjs, tspath.ExtensionMts})) {
 		return core.ModuleKindESNext
@@ -2742,10 +2737,6 @@ func IsRequireCall(node *Node, requireStringLiteralLikeArgument bool) bool {
 	return !requireStringLiteralLikeArgument || IsStringLiteralLike(call.Arguments.Nodes[0])
 }
 
-func IsUnterminatedLiteral(node *Node) bool {
-	return node.LiteralLikeData().TokenFlags&TokenFlagsUnterminated != 0
-}
-
 func GetJSXImplicitImportBase(compilerOptions *core.CompilerOptions, file *SourceFile) string {
 	jsxImportSourcePragma := GetPragmaFromSourceFile(file, "jsximportsource")
 	jsxRuntimePragma := GetPragmaFromSourceFile(file, "jsxruntime")
@@ -2899,15 +2890,6 @@ func GetClassLikeDeclarationOfSymbol(symbol *Symbol) *Node {
 	return core.Find(symbol.Declarations, IsClassLike)
 }
 
-func GetLanguageVariant(scriptKind core.ScriptKind) core.LanguageVariant {
-	switch scriptKind {
-	case core.ScriptKindTSX, core.ScriptKindJSX, core.ScriptKindJS, core.ScriptKindJSON:
-		// .tsx and .jsx files are treated as jsx language variant.
-		return core.LanguageVariantJSX
-	}
-	return core.LanguageVariantStandard
-}
-
 func IsCallLikeExpression(node *Node) bool {
 	switch node.Kind {
 	case KindJsxOpeningElement, KindJsxSelfClosingElement, KindJsxOpeningFragment, KindCallExpression, KindNewExpression,
@@ -3050,7 +3032,7 @@ func IsJSDocSingleCommentNode(node *Node) bool {
 }
 
 func IsValidTypeOnlyAliasUseSite(useSite *Node) bool {
-	return useSite.Flags&NodeFlagsAmbient != 0 ||
+	return useSite.Flags&(NodeFlagsAmbient|NodeFlagsJSDoc) != 0 ||
 		IsPartOfTypeQuery(useSite) ||
 		isIdentifierInNonEmittingHeritageClause(useSite) ||
 		isPartOfPossiblyValidTypeOrAbstractComputedPropertyName(useSite) ||
@@ -3118,7 +3100,7 @@ func IsPartOfExclusivelyTypeOnlyImportOrExportDeclaration(node *Node) bool {
 func IsEmittableImport(node *Node) bool {
 	switch node.Kind {
 	case KindImportDeclaration:
-		return node.AsImportDeclaration().ImportClause == nil || !node.AsImportDeclaration().ImportClause.IsTypeOnly()
+		return node.AsImportDeclaration().ImportClause != nil && !node.AsImportDeclaration().ImportClause.IsTypeOnly()
 	case KindExportDeclaration:
 		return !node.AsExportDeclaration().IsTypeOnly
 	case KindImportEqualsDeclaration:
@@ -3600,8 +3582,9 @@ func compareNodePositions(n1, n2 *Node) int {
 	return n1.Pos() - n2.Pos()
 }
 
-func IsUnterminatedNode(node *Node) bool {
-	return IsLiteralKind(node.Kind) && IsUnterminatedLiteral(node)
+func IsUnterminatedLiteral(node *Node) bool {
+	return IsLiteralKind(node.Kind) && node.LiteralLikeData().TokenFlags&TokenFlagsUnterminated != 0 ||
+		IsTemplateLiteralKind(node.Kind) && node.TemplateLiteralLikeData().TemplateFlags&TokenFlagsUnterminated != 0
 }
 
 // Gets a value indicating whether a class element is either a static or an instance property declaration with an initializer.
