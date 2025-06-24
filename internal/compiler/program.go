@@ -175,36 +175,8 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
 }
 
 func NewProgram(opts ProgramOptions) *Program {
-	p := &Program{
-		opts: opts,
-	}
-	compilerOptions := p.opts.Config.CompilerOptions()
-	if compilerOptions == nil {
-		panic("compiler options required")
-	}
-	if p.opts.Host == nil {
-		panic("host required")
-	}
-
-	var libs []string
-
-	if compilerOptions.NoLib != core.TSTrue {
-		if compilerOptions.Lib == nil {
-			name := tsoptions.GetDefaultLibFileName(compilerOptions)
-			libs = append(libs, tspath.CombinePaths(p.Host().DefaultLibraryPath(), name))
-		} else {
-			for _, lib := range compilerOptions.Lib {
-				name, ok := tsoptions.GetLibFileName(lib)
-				if ok {
-					libs = append(libs, tspath.CombinePaths(p.Host().DefaultLibraryPath(), name))
-				}
-				// !!! error on unknown name
-			}
-		}
-	}
-
-	p.processedFiles = processAllProgramFiles(p.opts, libs, p.singleThreaded())
-
+	p := &Program{opts: opts}
+	p.processedFiles = processAllProgramFiles(p.opts, p.singleThreaded())
 	return p
 }
 
