@@ -53,9 +53,9 @@ export function C() {
 
 exports.C = function() {
 >exports.C = function() {    this.p = 1} : () => void
->exports.C : any
+>exports.C : () => void
 >exports : typeof import("./mod3")
->C : any
+>C : () => void
 >function() {    this.p = 1} : () => void
 
     this.p = 1
@@ -83,7 +83,7 @@ var both2 = both1;
 
 /** @type {import('./mod3').Both} */
 var both3 = both2;
->both3 : { type: "a"; x: 1; } | { type: "b"; y: 1; }
+>both3 : import("./mod3").Both
 >both2 : import("./mod2").Both
 
 

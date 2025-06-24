@@ -1,6 +1,6 @@
 --- old.nodeModulesDeclarationEmitWithPackageExports(module=nodenext).js
 +++ new.nodeModulesDeclarationEmitWithPackageExports(module=nodenext).js
-@@= skipped -161, +161 lines =@@
+@@= skipped -171, +171 lines =@@
 
 
  //// [index.d.mts]

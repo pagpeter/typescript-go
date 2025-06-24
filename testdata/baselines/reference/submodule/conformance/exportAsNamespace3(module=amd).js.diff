@@ -21,10 +21,10 @@
  var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
      if (k2 === undefined) k2 = k;
      var desc = Object.getOwnPropertyDescriptor(m, k);
-@@= skipped -31, +30 lines =@@
-     __setModuleDefault(result, mod);
-     return result;
- };
+@@= skipped -41, +40 lines =@@
+         return result;
+     };
+ })();
 -define(["require", "exports", "./0"], function (require, exports, ns) {
 -    "use strict";
 -    Object.defineProperty(exports, "__esModule", { value: true });
@@ -32,7 +32,7 @@
 -    exports.ns = __importStar(ns);
 -    ns.a;
 -    ns.b;
--    var ns = { a: 1, b: 2 };
+-    let ns = { a: 1, b: 2 };
 -    ns.a;
 -    ns.b;
 -});
@@ -49,10 +49,10 @@
  var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
      if (k2 === undefined) k2 = k;
      var desc = Object.getOwnPropertyDescriptor(m, k);
-@@= skipped -35, +33 lines =@@
-     __setModuleDefault(result, mod);
-     return result;
- };
+@@= skipped -45, +43 lines =@@
+         return result;
+     };
+ })();
 -define(["require", "exports", "./1"], function (require, exports, foo) {
 -    "use strict";
 -    Object.defineProperty(exports, "__esModule", { value: true });

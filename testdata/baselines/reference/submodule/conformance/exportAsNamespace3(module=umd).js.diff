@@ -29,10 +29,10 @@
  var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
      if (k2 === undefined) k2 = k;
      var desc = Object.getOwnPropertyDescriptor(m, k);
-@@= skipped -39, +30 lines =@@
-     __setModuleDefault(result, mod);
-     return result;
- };
+@@= skipped -49, +40 lines =@@
+         return result;
+     };
+ })();
 -(function (factory) {
 -    if (typeof module === "object" && typeof module.exports === "object") {
 -        var v = factory(require, exports);
@@ -48,7 +48,7 @@
 -    exports.ns = __importStar(require("./0"));
 -    ns.a;
 -    ns.b;
--    var ns = { a: 1, b: 2 };
+-    let ns = { a: 1, b: 2 };
 -    ns.a;
 -    ns.b;
 -});
@@ -65,10 +65,10 @@
  var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
      if (k2 === undefined) k2 = k;
      var desc = Object.getOwnPropertyDescriptor(m, k);
-@@= skipped -43, +33 lines =@@
-     __setModuleDefault(result, mod);
-     return result;
- };
+@@= skipped -53, +43 lines =@@
+         return result;
+     };
+ })();
 -(function (factory) {
 -    if (typeof module === "object" && typeof module.exports === "object") {
 -        var v = factory(require, exports);
