@@ -106,8 +106,10 @@ var esnextLibs = []string{
 	"lib.esnext.collection.d.ts",
 	"lib.esnext.intl.d.ts",
 	"lib.esnext.disposable.d.ts",
+	"lib.esnext.promise.d.ts",
 	"lib.esnext.decorators.d.ts",
 	"lib.esnext.iterator.d.ts",
+	"lib.esnext.float16.d.ts",
 	"lib.decorators.d.ts",
 	"lib.decorators.legacy.d.ts",
 	"lib.esnext.full.d.ts",
@@ -232,9 +234,13 @@ func TestProgram(t *testing.T) {
 			opts := core.CompilerOptions{Target: testCase.target}
 
 			program := NewProgram(ProgramOptions{
-				RootFiles: []string{"c:/dev/src/index.ts"},
-				Host:      NewCompilerHost(&opts, "c:/dev/src", fs, bundled.LibPath()),
-				Options:   &opts,
+				Config: &tsoptions.ParsedCommandLine{
+					ParsedConfig: &core.ParsedOptions{
+						FileNames:       []string{"c:/dev/src/index.ts"},
+						CompilerOptions: &opts,
+					},
+				},
+				Host: NewCompilerHost(&opts, "c:/dev/src", fs, bundled.LibPath(), nil),
 			})
 
 			actualFiles := []string{}
@@ -265,9 +271,13 @@ func BenchmarkNewProgram(b *testing.B) {
 
 			opts := core.CompilerOptions{Target: testCase.target}
 			programOpts := ProgramOptions{
-				RootFiles: []string{"c:/dev/src/index.ts"},
-				Host:      NewCompilerHost(&opts, "c:/dev/src", fs, bundled.LibPath()),
-				Options:   &opts,
+				Config: &tsoptions.ParsedCommandLine{
+					ParsedConfig: &core.ParsedOptions{
+						FileNames:       []string{"c:/dev/src/index.ts"},
+						CompilerOptions: &opts,
+					},
+				},
+				Host: NewCompilerHost(&opts, "c:/dev/src", fs, bundled.LibPath(), nil),
 			}
 
 			for b.Loop() {
@@ -284,14 +294,14 @@ func BenchmarkNewProgram(b *testing.B) {
 		fs := osvfs.FS()
 		fs = bundled.WrapFS(fs)
 
-		host := NewCompilerHost(nil, rootPath, fs, bundled.LibPath())
+		host := NewCompilerHost(nil, rootPath, fs, bundled.LibPath(), nil)
 
-		parsed, errors := tsoptions.GetParsedCommandLineOfConfigFile(tspath.CombinePaths(rootPath, "tsconfig.json"), &core.CompilerOptions{}, host, nil)
+		parsed, errors := tsoptions.GetParsedCommandLineOfConfigFile(tspath.CombinePaths(rootPath, "tsconfig.json"), nil, host, nil)
 		assert.Equal(b, len(errors), 0, "Expected no errors in parsed command line")
 
 		opts := ProgramOptions{
-			Host:    host,
-			Options: parsed.CompilerOptions(),
+			Config: parsed,
+			Host:   host,
 		}
 
 		for b.Loop() {
