@@ -185,7 +185,6 @@ func NewProgram(opts ProgramOptions) *Program {
 	if p.opts.Host == nil {
 		panic("host required")
 	}
-	p.initCheckerPool()
 
 	var libs []string
 
