@@ -913,19 +913,13 @@ func (r *emitResolver) CreateLiteralConstValue(emitContext *printer.EmitContext,
 		}
 		return emitContext.Factory.NewNumericLiteral(value.String())
 	case jsnum.PseudoBigInt:
-		if value.Negative {
-			// negative
-			return emitContext.Factory.NewPrefixUnaryExpression(
-				ast.KindMinusToken,
-				emitContext.Factory.NewBigIntLiteral(value.Base10Value),
-			)
-		}
-		return emitContext.Factory.NewNumericLiteral(value.Base10Value)
+		return emitContext.Factory.NewBigIntLiteral(pseudoBigIntToString(value) + "n")
 	case bool:
+		kind := ast.KindFalseKeyword
 		if value {
-			return emitContext.Factory.NewKeywordExpression(ast.KindTrueKeyword)
+			kind = ast.KindTrueKeyword
 		}
-		return emitContext.Factory.NewKeywordExpression(ast.KindFalseKeyword)
+		return emitContext.Factory.NewKeywordExpression(kind)
 	}
 	panic("unhandled literal const value kind")
 }
