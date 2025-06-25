@@ -43,8 +43,6 @@ func (b *NodeBuilder) popContext() {
 	stackSize := len(b.ctxStack)
 	if stackSize == 0 {
 		b.impl.ctx = nil
-		b.impl.links.Clear()
-		b.impl.symbolLinks.Clear()
 	} else {
 		b.impl.ctx = b.ctxStack[stackSize-1]
 		b.ctxStack = b.ctxStack[:stackSize-1]
@@ -174,4 +172,8 @@ func NewNodeBuilder(ch *Checker, e *printer.EmitContext) *NodeBuilder {
 
 func (c *Checker) NewNodeBuilder() *NodeBuilder {
 	return NewNodeBuilder(c, printer.NewEmitContext())
+}
+
+func (c *Checker) GetDiagnosticNodeBuilder() *NodeBuilder {
+	return c.nodeBuilder
 }
