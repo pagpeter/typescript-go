@@ -171,5 +171,8 @@ func NewNodeBuilder(ch *Checker, e *printer.EmitContext) *NodeBuilder {
 }
 
 func (c *Checker) NewNodeBuilder() *NodeBuilder {
+	if c.nodeBuilderDuringCheckSourceFile != nil {
+		return c.nodeBuilderDuringCheckSourceFile
+	}
 	return NewNodeBuilder(c, printer.NewEmitContext())
 }
