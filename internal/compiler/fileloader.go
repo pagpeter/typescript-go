@@ -40,18 +40,16 @@ type fileLoader struct {
 }
 
 type processedFiles struct {
-	resolver                      *module.Resolver
-	files                         []*ast.SourceFile
-	filesByPath                   map[tspath.Path]*ast.SourceFile
-	projectReferenceFileMapper    *projectReferenceFileMapper
-	missingFiles                  []string
-	resolvedModules               map[tspath.Path]module.ModeAwareCache[*module.ResolvedModule]
-	typeResolutionsInFile         map[tspath.Path]module.ModeAwareCache[*module.ResolvedTypeReferenceDirective]
-	sourceFileMetaDatas           map[tspath.Path]ast.SourceFileMetaData
-	jsxRuntimeImportSpecifiers    map[tspath.Path]*jsxRuntimeImportSpecifier
-	importHelpersImportSpecifiers map[tspath.Path]*ast.Node
-	// List of present unsupported extensions
-	unsupportedExtensions                []string
+	resolver                             *module.Resolver
+	files                                []*ast.SourceFile
+	filesByPath                          map[tspath.Path]*ast.SourceFile
+	projectReferenceFileMapper           *projectReferenceFileMapper
+	missingFiles                         []string
+	resolvedModules                      map[tspath.Path]module.ModeAwareCache[*module.ResolvedModule]
+	typeResolutionsInFile                map[tspath.Path]module.ModeAwareCache[*module.ResolvedTypeReferenceDirective]
+	sourceFileMetaDatas                  map[tspath.Path]ast.SourceFileMetaData
+	jsxRuntimeImportSpecifiers           map[tspath.Path]*jsxRuntimeImportSpecifier
+	importHelpersImportSpecifiers        map[tspath.Path]*ast.Node
 	sourceFilesFoundSearchingNodeModules collections.Set[tspath.Path]
 }
 
@@ -128,7 +126,6 @@ func processAllProgramFiles(
 	sourceFileMetaDatas := make(map[tspath.Path]ast.SourceFileMetaData, totalFileCount)
 	var jsxRuntimeImportSpecifiers map[tspath.Path]*jsxRuntimeImportSpecifier
 	var importHelpersImportSpecifiers map[tspath.Path]*ast.Node
-	var unsupportedExtensions []string
 	var sourceFilesFoundSearchingNodeModules collections.Set[tspath.Path]
 
 	loader.parseTasks.collect(&loader, loader.rootTasks, func(task *parseTask, _ []tspath.Path) {
@@ -168,10 +165,6 @@ func processAllProgramFiles(
 			}
 			importHelpersImportSpecifiers[path] = task.importHelpersImportSpecifier
 		}
-		extension := tspath.TryGetExtensionFromPath(file.FileName())
-		if slices.Contains(tspath.SupportedJSExtensionsFlat, extension) {
-			unsupportedExtensions = core.AppendIfUnique(unsupportedExtensions, extension)
-		}
 		if task.fromExternalLibrary {
 			sourceFilesFoundSearchingNodeModules.Add(path)
 		}
@@ -195,7 +188,6 @@ func processAllProgramFiles(
 		sourceFileMetaDatas:                  sourceFileMetaDatas,
 		jsxRuntimeImportSpecifiers:           jsxRuntimeImportSpecifiers,
 		importHelpersImportSpecifiers:        importHelpersImportSpecifiers,
-		unsupportedExtensions:                unsupportedExtensions,
 		sourceFilesFoundSearchingNodeModules: sourceFilesFoundSearchingNodeModules,
 	}
 }
