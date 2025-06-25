@@ -35,16 +35,6 @@ func (m MessageType) IsValid() bool {
 	return m >= MessageTypeRequest && m <= MessageTypeCall
 }
 
-type MessagePackType uint8
-
-const (
-	MessagePackTypeFixedArray3 MessagePackType = 0x93
-	MessagePackTypeBin8        MessagePackType = 0xC4
-	MessagePackTypeBin16       MessagePackType = 0xC5
-	MessagePackTypeBin32       MessagePackType = 0xC6
-	MessagePackTypeU8          MessagePackType = 0xCC
-)
-
 type Callback int
 
 const (
