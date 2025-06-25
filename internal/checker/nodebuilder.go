@@ -173,7 +173,3 @@ func NewNodeBuilder(ch *Checker, e *printer.EmitContext) *NodeBuilder {
 func (c *Checker) NewNodeBuilder() *NodeBuilder {
 	return NewNodeBuilder(c, printer.NewEmitContext())
 }
-
-func (c *Checker) GetDiagnosticNodeBuilder() *NodeBuilder {
-	return c.nodeBuilder
-}
