@@ -28,3 +28,10 @@ func (s *LinkStore[K, V]) Has(key K) bool {
 func (s *LinkStore[K, V]) TryGet(key K) *V {
 	return s.entries[key]
 }
+
+func (s *LinkStore[K, V]) Clear() {
+	clear(s.entries)
+	*s = LinkStore[K, V]{
+		entries: s.entries,
+	}
+}
