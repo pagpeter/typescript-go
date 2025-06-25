@@ -7,6 +7,7 @@ require (
 	github.com/go-json-experiment/json v0.0.0-20250517221953-25912455fbc8
 	github.com/google/go-cmp v0.7.0
 	github.com/peter-evans/patience v0.3.0
+	github.com/vmihailenco/msgpack/v5 v5.4.1
 	golang.org/x/sync v0.15.0
 	golang.org/x/sys v0.33.0
 	gotest.tools/v3 v3.5.2
@@ -14,6 +15,7 @@ require (
 
 require (
 	github.com/matryer/moq v0.5.3 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
