@@ -848,8 +848,6 @@ type Checker struct {
 	markNodeAssignments                         func(*ast.Node) bool
 	emitResolver                                *emitResolver
 	emitResolverOnce                            sync.Once
-	inCheckSourceFile                           bool
-	nodeBuilderDuringCheckSourceFile            *NodeBuilder
 	_jsxNamespace                               string
 	_jsxFactoryEntity                           *ast.Node
 	skipDirectInferenceNodes                    collections.Set[*ast.Node]
@@ -2112,7 +2110,6 @@ func (c *Checker) checkSourceFile(ctx context.Context, sourceFile *ast.SourceFil
 	links := c.sourceFileLinks.Get(sourceFile)
 	if !links.typeChecked {
 		c.ctx = ctx
-		c.inCheckSourceFile = true
 		// Grammar checking
 		c.checkGrammarSourceFile(sourceFile)
 		c.renamedBindingElementsInTypes = nil
@@ -2135,8 +2132,6 @@ func (c *Checker) checkSourceFile(ctx context.Context, sourceFile *ast.SourceFil
 			c.wasCanceled = true
 		}
 		c.ctx = nil
-		c.inCheckSourceFile = false
-		c.nodeBuilderDuringCheckSourceFile = nil
 		links.typeChecked = true
 	}
 }
