@@ -18242,6 +18242,9 @@ func findIndexInfo(indexInfos []*IndexInfo, keyType *Type) *IndexInfo {
 
 func (c *Checker) getBaseTypes(t *Type) []*Type {
 	data := t.AsInterfaceType()
+	if data == nil {
+		return nil
+	}
 	if !data.baseTypesResolved {
 		if !c.pushTypeResolution(t, TypeSystemPropertyNameResolvedBaseTypes) {
 			return data.resolvedBaseTypes
