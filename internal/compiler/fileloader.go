@@ -189,14 +189,14 @@ func processAllProgramFiles(
 	for _, resolutions := range resolvedModules {
 		for _, resolvedModule := range resolutions {
 			for _, diag := range resolvedModule.ResolutionDiagnostics {
-				fileLoadDiagnostics.Add(&diag)
+				fileLoadDiagnostics.Add(diag)
 			}
 		}
 	}
 	for _, typeResolutions := range typeResolutionsInFile {
 		for _, resolvedTypeRef := range typeResolutions {
 			for _, diag := range resolvedTypeRef.ResolutionDiagnostics {
-				fileLoadDiagnostics.Add(&diag)
+				fileLoadDiagnostics.Add(diag)
 			}
 		}
 	}
@@ -205,7 +205,7 @@ func processAllProgramFiles(
 		resolvedModules[key] = value
 		for _, resolvedModule := range value {
 			for _, diag := range resolvedModule.ResolutionDiagnostics {
-				fileLoadDiagnostics.Add(&diag)
+				fileLoadDiagnostics.Add(diag)
 			}
 		}
 		return true
