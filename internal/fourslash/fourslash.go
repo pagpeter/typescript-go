@@ -620,16 +620,40 @@ func ptrTo[T any](v T) *T {
 	return &v
 }
 
-// Insert text at the current caret position
+// Insert text at the current caret position.
 func (f *FourslashTest) Insert(t *testing.T, text string) {
 	f.typeText(t, text)
 }
 
-// Insert text and a new line at the current caret position
+// Insert text and a new line at the current caret position.
 func (f *FourslashTest) InsertLine(t *testing.T, text string) {
 	f.typeText(t, text+"\n")
 }
 
+// Removes the text at the current caret position as if the user pressed backspace `count` times.
+func (f *FourslashTest) Backspace(t *testing.T, count int) {
+	script := f.getScriptInfo(f.activeFilename)
+	offset := int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition))
+
+	for range count {
+		offset--
+		f.editScriptAndUpdateMarkers(t, f.activeFilename, offset, offset+1, "")
+		f.currentCaretPosition = f.converters.PositionToLineAndCharacter(script, core.TextPos(offset))
+		// Don't need to examine formatting because there are no formatting changes on backspace.
+	}
+
+	// f.checkPostEditInvariants() // !!! do we need this?
+}
+
+// Enters text as if the user had pasted it.
+func (f *FourslashTest) Paste(t *testing.T, text string) {
+	script := f.getScriptInfo(f.activeFilename)
+	start := int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition))
+	f.editScriptAndUpdateMarkers(t, f.activeFilename, start, start, text)
+	// this.checkPostEditInvariants();
+}
+
+// Inserts the text currently at the caret position character by character, as if the user typed it.
 func (f *FourslashTest) typeText(t *testing.T, text string) {
 	script := f.getScriptInfo(f.activeFilename)
 	offset := int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition))
@@ -659,6 +683,8 @@ func (f *FourslashTest) typeText(t *testing.T, text string) {
 	// f.checkPostEditInvariants() // !!! do we need this?
 }
 
+// Edits the script and updates marker and range positions accordingly.
+// This does not update the current caret position.
 func (f *FourslashTest) editScriptAndUpdateMarkers(t *testing.T, fileName string, editStart int, editEnd int, newText string) {
 	script := f.editScript(t, fileName, editStart, editEnd, newText)
 	for _, marker := range f.testData.Markers {
