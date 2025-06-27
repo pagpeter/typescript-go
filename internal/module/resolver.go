@@ -55,7 +55,7 @@ type resolutionState struct {
 	resolvedPackageDirectory        bool
 	failedLookupLocations           []string
 	affectingLocations              []string
-	diagnostics                     []ast.Diagnostic
+	diagnostics                     []*ast.Diagnostic
 }
 
 func newResolutionState(
@@ -835,7 +835,7 @@ func (r *resolutionState) tryLoadInputFileForPath(finalPath string, entry string
 					packagePath,
 				)
 			}
-			r.diagnostics = append(r.diagnostics, *diagnostic)
+			r.diagnostics = append(r.diagnostics, diagnostic)
 		}
 
 		for _, commonSourceDirGuess := range commonSourceDirGuesses {
