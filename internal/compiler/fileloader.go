@@ -388,7 +388,6 @@ func (p *fileLoader) resolveTypeReferenceDirectives(t *parseTask) {
 		resolved := p.resolver.ResolveTypeReferenceDirective(ref.FileName, file.FileName(), resolutionMode, redirect)
 		typeResolutionsInFile[module.ModeAwareCacheKey{Name: ref.FileName, Mode: resolutionMode}] = resolved
 
-		// Collect diagnostics from the resolved type reference directive
 		if resolved.IsResolved() {
 			t.addSubTask(resolvedRef{
 				fileName:              resolved.ResolvedFileName,
