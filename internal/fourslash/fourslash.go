@@ -39,6 +39,7 @@ type FourslashTest struct {
 	currentCaretPosition lsproto.Position
 	lastKnownMarkerName  string
 	activeFilename       string
+	selectionEnd         *lsproto.Position
 }
 
 type scriptInfo struct {
@@ -311,7 +312,7 @@ func (f *FourslashTest) GoToEOF(t *testing.T) {
 
 func (f *FourslashTest) goToPosition(t *testing.T, position lsproto.Position) {
 	f.currentCaretPosition = position
-	// !!! clean up selection
+	f.selectionEnd = nil
 }
 
 func (f *FourslashTest) Markers() []*Marker {
@@ -648,15 +649,55 @@ func (f *FourslashTest) Paste(t *testing.T, text string) {
 	script := f.getScriptInfo(f.activeFilename)
 	start := int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition))
 	f.editScriptAndUpdateMarkers(t, f.activeFilename, start, start, text)
-	// this.checkPostEditInvariants();
+	// this.checkPostEditInvariants(); // !!! do we need this?
+}
+
+// Selects a line and replaces it with a new text.
+func (f *FourslashTest) ReplaceLine(t *testing.T, lineIndex int, text string) {
+	f.selectLine(t, lineIndex)
+	f.typeText(t, text)
+}
+
+func (f *FourslashTest) selectLine(t *testing.T, lineIndex int) {
+	script := f.getScriptInfo(f.activeFilename)
+	start := script.lineMap.LineStarts[lineIndex]
+	end := script.lineMap.LineStarts[lineIndex+1] - 1
+	f.selectRange(t, core.NewTextRange(int(start), int(end)))
+}
+
+func (f *FourslashTest) selectRange(t *testing.T, textRange core.TextRange) {
+	script := f.getScriptInfo(f.activeFilename)
+	start := f.converters.PositionToLineAndCharacter(script, core.TextPos(textRange.Pos()))
+	end := f.converters.PositionToLineAndCharacter(script, core.TextPos(textRange.End()))
+	f.goToPosition(t, start)
+	f.selectionEnd = &end
+}
+
+func (f *FourslashTest) getSelection() core.TextRange {
+	script := f.getScriptInfo(f.activeFilename)
+	if f.selectionEnd == nil {
+		return core.NewTextRange(
+			int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition)),
+			int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition)),
+		)
+	}
+	return core.NewTextRange(
+		int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition)),
+		int(f.converters.LineAndCharacterToPosition(script, *f.selectionEnd)),
+	)
+}
+
+func (f *FourslashTest) Replace(t *testing.T, start int, length int, text string) {
+	f.editScriptAndUpdateMarkers(t, f.activeFilename, start, start+length, text)
+	// f.checkPostEditInvariants() // !!! do we need this?
 }
 
 // Inserts the text currently at the caret position character by character, as if the user typed it.
 func (f *FourslashTest) typeText(t *testing.T, text string) {
 	script := f.getScriptInfo(f.activeFilename)
 	offset := int(f.converters.LineAndCharacterToPosition(script, f.currentCaretPosition))
-	// selection := f.getSelection() // !!! selection
-	// this.replace(selection.pos, selection.end - selection.pos, ""); // !!! selection
+	selection := f.getSelection()
+	f.Replace(t, selection.Pos(), selection.End()-selection.Pos(), "")
 
 	totalSize := 0
 
