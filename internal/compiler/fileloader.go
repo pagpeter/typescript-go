@@ -54,6 +54,7 @@ type processedFiles struct {
 	// List of present unsupported extensions
 	unsupportedExtensions                []string
 	sourceFilesFoundSearchingNodeModules collections.Set[tspath.Path]
+	fileLoadDiagnostics                  *ast.DiagnosticsCollection
 }
 
 type jsxRuntimeImportSpecifier struct {
@@ -132,6 +133,7 @@ func processAllProgramFiles(
 	var unsupportedExtensions []string
 	var sourceFilesFoundSearchingNodeModules collections.Set[tspath.Path]
 	var libFileSet collections.Set[tspath.Path]
+	fileLoadDiagnostics := &ast.DiagnosticsCollection{}
 
 	loader.parseTasks.collect(&loader, loader.rootTasks, func(task *parseTask, _ []tspath.Path) {
 		if task.isRedirected {
@@ -159,6 +161,18 @@ func processAllProgramFiles(
 		resolvedModules[path] = task.resolutionsInFile
 		typeResolutionsInFile[path] = task.typeResolutionsInFile
 		sourceFileMetaDatas[path] = task.metadata
+
+		// Collect resolution diagnostics from resolved modules and type reference directives
+		for _, resolvedModule := range task.resolutionsInFile {
+			for _, diag := range resolvedModule.ResolutionDiagnostics {
+				fileLoadDiagnostics.Add(&diag)
+			}
+		}
+		for _, resolvedTypeRef := range task.typeResolutionsInFile {
+			for _, diag := range resolvedTypeRef.ResolutionDiagnostics {
+				fileLoadDiagnostics.Add(&diag)
+			}
+		}
 		if task.jsxRuntimeImportSpecifier != nil {
 			if jsxRuntimeImportSpecifiers == nil {
 				jsxRuntimeImportSpecifiers = make(map[tspath.Path]*jsxRuntimeImportSpecifier, totalFileCount)
@@ -201,6 +215,7 @@ func processAllProgramFiles(
 		unsupportedExtensions:                unsupportedExtensions,
 		sourceFilesFoundSearchingNodeModules: sourceFilesFoundSearchingNodeModules,
 		libFiles:                             libFileSet,
+		fileLoadDiagnostics:                  fileLoadDiagnostics,
 	}
 }
 
@@ -372,6 +387,8 @@ func (p *fileLoader) resolveTypeReferenceDirectives(t *parseTask) {
 		resolutionMode := getModeForTypeReferenceDirectiveInFile(ref, file, meta, module.GetCompilerOptionsWithRedirect(p.opts.Config.CompilerOptions(), redirect))
 		resolved := p.resolver.ResolveTypeReferenceDirective(ref.FileName, file.FileName(), resolutionMode, redirect)
 		typeResolutionsInFile[module.ModeAwareCacheKey{Name: ref.FileName, Mode: resolutionMode}] = resolved
+
+		// Collect diagnostics from the resolved type reference directive
 		if resolved.IsResolved() {
 			t.addSubTask(resolvedRef{
 				fileName:              resolved.ResolvedFileName,
