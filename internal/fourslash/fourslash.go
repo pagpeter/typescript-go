@@ -197,7 +197,7 @@ func NewFourslash(t *testing.T, capabilities *lsproto.ClientCapabilities, conten
 	// !!! replace with a proper request *after initialize*
 	f.server.SetCompilerOptionsForInferredProjects(compilerOptions)
 	f.initialize(t, capabilities)
-	f.openFile(t, f.testData.Files[0])
+	f.openFile(t, f.testData.Files[0].fileName)
 
 	t.Cleanup(func() {
 		inputWriter.Close()
@@ -324,23 +324,21 @@ func (f *FourslashTest) Ranges() []*RangeMarker {
 
 func (f *FourslashTest) ensureActiveFile(t *testing.T, filename string) {
 	if f.activeFilename != filename {
-		file := core.Find(f.testData.Files, func(f *TestFileInfo) bool { // !!! use script info
-			return f.fileName == filename
-		})
-		if file == nil {
-			t.Fatalf("File %s not found in test data", filename)
-		}
-		f.openFile(t, file)
+		f.openFile(t, filename)
 	}
 }
 
-func (f *FourslashTest) openFile(t *testing.T, file *TestFileInfo) {
-	f.activeFilename = file.fileName
+func (f *FourslashTest) openFile(t *testing.T, filename string) {
+	script := f.getScriptInfo(filename)
+	if script == nil {
+		t.Fatalf("File %s not found in test data", filename)
+	}
+	f.activeFilename = filename
 	f.sendNotification(t, lsproto.MethodTextDocumentDidOpen, &lsproto.DidOpenTextDocumentParams{
 		TextDocument: &lsproto.TextDocumentItem{
-			Uri:        ls.FileNameToDocumentURI(file.fileName),
-			LanguageId: getLanguageKind(file.fileName),
-			Text:       file.Content,
+			Uri:        ls.FileNameToDocumentURI(filename),
+			LanguageId: getLanguageKind(filename),
+			Text:       script.content,
 		},
 	})
 }
