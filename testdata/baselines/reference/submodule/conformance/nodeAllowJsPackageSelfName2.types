@@ -7,5 +7,5 @@ export const foo = 1;
 
 === /test/foo.js ===
 import { foo } from "js-self-name-import/foo.js";
->foo : any
+>foo : 1
 

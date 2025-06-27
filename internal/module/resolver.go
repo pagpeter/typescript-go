@@ -859,7 +859,7 @@ func (r *resolutionState) tryLoadInputFileForPath(finalPath string, entry string
 								possibleInputWithInputExtension := tspath.ChangeExtension(possibleInputBase, possibleExt)
 								if r.resolver.host.FS().FileExists(possibleInputWithInputExtension) {
 									if path, ok := r.tryFile(possibleInputWithInputExtension, false); ok {
-										extension := tspath.TryExtractTSExtension(path)
+										extension := tspath.TryGetExtensionFromPath(path)
 										return &resolved{
 											path:                     path,
 											extension:                extension,
