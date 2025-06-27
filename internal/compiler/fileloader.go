@@ -162,17 +162,6 @@ func processAllProgramFiles(
 		typeResolutionsInFile[path] = task.typeResolutionsInFile
 		sourceFileMetaDatas[path] = task.metadata
 
-		// Collect resolution diagnostics from resolved modules and type reference directives
-		for _, resolvedModule := range task.resolutionsInFile {
-			for _, diag := range resolvedModule.ResolutionDiagnostics {
-				fileLoadDiagnostics.Add(&diag)
-			}
-		}
-		for _, resolvedTypeRef := range task.typeResolutionsInFile {
-			for _, diag := range resolvedTypeRef.ResolutionDiagnostics {
-				fileLoadDiagnostics.Add(&diag)
-			}
-		}
 		if task.jsxRuntimeImportSpecifier != nil {
 			if jsxRuntimeImportSpecifiers == nil {
 				jsxRuntimeImportSpecifiers = make(map[tspath.Path]*jsxRuntimeImportSpecifier, totalFileCount)
@@ -197,8 +186,28 @@ func processAllProgramFiles(
 
 	allFiles := append(libFiles, files...)
 
+	for _, resolutions := range resolvedModules {
+		for _, resolvedModule := range resolutions {
+			for _, diag := range resolvedModule.ResolutionDiagnostics {
+				fileLoadDiagnostics.Add(&diag)
+			}
+		}
+	}
+	for _, typeResolutions := range typeResolutionsInFile {
+		for _, resolvedTypeRef := range typeResolutions {
+			for _, diag := range resolvedTypeRef.ResolutionDiagnostics {
+				fileLoadDiagnostics.Add(&diag)
+			}
+		}
+	}
+
 	loader.pathForLibFileResolutions.Range(func(key tspath.Path, value module.ModeAwareCache[*module.ResolvedModule]) bool {
 		resolvedModules[key] = value
+		for _, resolvedModule := range value {
+			for _, diag := range resolvedModule.ResolutionDiagnostics {
+				fileLoadDiagnostics.Add(&diag)
+			}
+		}
 		return true
 	})
 
