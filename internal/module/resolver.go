@@ -858,7 +858,14 @@ func (r *resolutionState) tryLoadInputFileForPath(finalPath string, entry string
 								}
 								possibleInputWithInputExtension := tspath.ChangeExtension(possibleInputBase, possibleExt)
 								if r.resolver.host.FS().FileExists(possibleInputWithInputExtension) {
-									return r.loadFileNameFromPackageJSONField(r.extensions, possibleInputWithInputExtension, "", false)
+									if path, ok := r.tryFile(possibleInputWithInputExtension, false); ok {
+										extension := tspath.TryExtractTSExtension(path)
+										return &resolved{
+											path:                     path,
+											extension:                extension,
+											resolvedUsingTsExtension: false, // These are input files, not output files accessed with TS extensions
+										}
+									}
 								}
 							}
 						}
