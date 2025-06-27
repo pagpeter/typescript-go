@@ -1543,7 +1543,7 @@ func (r *resolutionState) loadFileNameFromPackageJSONField(extensions extensions
 			return &resolved{
 				path:                     path,
 				extension:                extension,
-				resolvedUsingTsExtension: !strings.HasSuffix(packageJSONValue, extension),
+				resolvedUsingTsExtension: packageJSONValue != "" && !strings.HasSuffix(packageJSONValue, extension),
 			}
 		}
 		return continueSearching()
