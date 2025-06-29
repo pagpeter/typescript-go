@@ -16560,7 +16560,7 @@ func (c *Checker) isThislessInterface(symbol *ast.Symbol) bool {
 	return true
 }
 
-type KeyBuilder struct {
+type keyBuilder struct {
 	strings.Builder
 }
 
@@ -16571,34 +16571,34 @@ var base64chars = []byte{
 	'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '$', '%',
 }
 
-func (b *KeyBuilder) WriteUint64(value uint64) {
+func (b *keyBuilder) WriteUint64(value uint64) {
 	for value != 0 {
 		b.WriteByte(base64chars[value&0x3F])
 		value >>= 6
 	}
 }
 
-func (b *KeyBuilder) WriteInt(value int) {
+func (b *keyBuilder) WriteInt(value int) {
 	b.WriteUint64(uint64(int64(value)))
 }
 
-func (b *KeyBuilder) WriteSymbolId(id ast.SymbolId) {
+func (b *keyBuilder) WriteSymbolId(id ast.SymbolId) {
 	b.WriteUint64(uint64(id))
 }
 
-func (b *KeyBuilder) WriteSymbol(s *ast.Symbol) {
+func (b *keyBuilder) WriteSymbol(s *ast.Symbol) {
 	b.WriteSymbolId(ast.GetSymbolId(s))
 }
 
-func (b *KeyBuilder) WriteTypeId(id TypeId) {
+func (b *keyBuilder) WriteTypeId(id TypeId) {
 	b.WriteUint64(uint64(id))
 }
 
-func (b *KeyBuilder) WriteType(t *Type) {
+func (b *keyBuilder) WriteType(t *Type) {
 	b.WriteTypeId(t.id)
 }
 
-func (b *KeyBuilder) WriteTypes(types []*Type) {
+func (b *keyBuilder) WriteTypes(types []*Type) {
 	i := 0
 	var tail bool
 	for i < len(types) {
@@ -16620,7 +16620,7 @@ func (b *KeyBuilder) WriteTypes(types []*Type) {
 	}
 }
 
-func (b *KeyBuilder) WriteAlias(alias *TypeAlias) {
+func (b *keyBuilder) WriteAlias(alias *TypeAlias) {
 	if alias != nil {
 		b.WriteByte('@')
 		b.WriteSymbol(alias.symbol)
@@ -16631,7 +16631,7 @@ func (b *KeyBuilder) WriteAlias(alias *TypeAlias) {
 	}
 }
 
-func (b *KeyBuilder) WriteGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
+func (b *keyBuilder) WriteGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
 	var constrained bool
 	typeParameters := make([]*Type, 0, 8)
 	var writeTypeReference func(*Type, int)
@@ -16668,30 +16668,30 @@ func (b *KeyBuilder) WriteGenericTypeReferences(source *Type, target *Type, igno
 	return constrained
 }
 
-func (b *KeyBuilder) WriteNodeId(id ast.NodeId) {
+func (b *keyBuilder) WriteNodeId(id ast.NodeId) {
 	b.WriteUint64(uint64(id))
 }
 
-func (b *KeyBuilder) WriteNode(node *ast.Node) {
+func (b *keyBuilder) WriteNode(node *ast.Node) {
 	if node != nil {
 		b.WriteNodeId(ast.GetNodeId(node))
 	}
 }
 
 func getTypeListKey(types []*Type) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteTypes(types)
 	return b.String()
 }
 
 func getAliasKey(alias *TypeAlias) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteAlias(alias)
 	return b.String()
 }
 
 func getUnionKey(types []*Type, origin *Type, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b keyBuilder
 	switch {
 	case origin == nil:
 		b.WriteTypes(types)
@@ -16715,7 +16715,7 @@ func getUnionKey(types []*Type, origin *Type, alias *TypeAlias) string {
 }
 
 func getIntersectionKey(types []*Type, flags IntersectionFlags, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteTypes(types)
 	if flags&IntersectionFlagsNoConstraintReduction == 0 {
 		b.WriteAlias(alias)
@@ -16726,7 +16726,7 @@ func getIntersectionKey(types []*Type, flags IntersectionFlags, alias *TypeAlias
 }
 
 func getTupleKey(elementInfos []TupleElementInfo, readonly bool) string {
-	var b KeyBuilder
+	var b keyBuilder
 	for _, e := range elementInfos {
 		switch {
 		case e.flags&ElementFlagsRequired != 0:
@@ -16753,7 +16753,7 @@ func getTypeAliasInstantiationKey(typeArguments []*Type, alias *TypeAlias) strin
 }
 
 func getTypeInstantiationKey(typeArguments []*Type, alias *TypeAlias, singleSignature bool) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteTypes(typeArguments)
 	b.WriteAlias(alias)
 	if singleSignature {
@@ -16763,7 +16763,7 @@ func getTypeInstantiationKey(typeArguments []*Type, alias *TypeAlias, singleSign
 }
 
 func getIndexedAccessKey(objectType *Type, indexType *Type, accessFlags AccessFlags, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteType(objectType)
 	b.WriteByte(',')
 	b.WriteType(indexType)
@@ -16774,7 +16774,7 @@ func getIndexedAccessKey(objectType *Type, indexType *Type, accessFlags AccessFl
 }
 
 func getTemplateTypeKey(texts []string, types []*Type) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteTypes(types)
 	b.WriteByte('|')
 	for i, s := range texts {
@@ -16791,7 +16791,7 @@ func getTemplateTypeKey(texts []string, types []*Type) string {
 }
 
 func getConditionalTypeKey(typeArguments []*Type, alias *TypeAlias, forConstraint bool) string {
-	var b KeyBuilder
+	var b keyBuilder
 	b.WriteTypes(typeArguments)
 	b.WriteAlias(alias)
 	if forConstraint {
@@ -16804,7 +16804,7 @@ func getRelationKey(source *Type, target *Type, intersectionState IntersectionSt
 	if isIdentity && source.id > target.id {
 		source, target = target, source
 	}
-	var b KeyBuilder
+	var b keyBuilder
 	var constrained bool
 	if isTypeReferenceWithGenericArguments(source) && isTypeReferenceWithGenericArguments(target) {
 		constrained = b.WriteGenericTypeReferences(source, target, ignoreConstraints)
@@ -16826,7 +16826,7 @@ func getRelationKey(source *Type, target *Type, intersectionState IntersectionSt
 }
 
 func getNodeListKey(nodes []*ast.Node) string {
-	var b KeyBuilder
+	var b keyBuilder
 	for i, n := range nodes {
 		if i > 0 {
 			b.WriteByte(',')
@@ -21986,7 +21986,7 @@ func (c *Checker) getESSymbolLikeTypeForNode(node *ast.Node) *Type {
 		if symbol != nil {
 			uniqueType := c.uniqueESSymbolTypes[symbol]
 			if uniqueType == nil {
-				var b KeyBuilder
+				var b keyBuilder
 				b.WriteString(ast.InternalSymbolNamePrefix)
 				b.WriteByte('@')
 				b.WriteString(symbol.Name)
