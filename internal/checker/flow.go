@@ -1612,8 +1612,8 @@ func (c *Checker) isMatchingReference(source *ast.Node, target *ast.Node) bool {
 // leftmost identifier followed by zero or more property names separated by dots.
 // The result is an empty string if the reference isn't a dotted name.
 func (c *Checker) getFlowReferenceKey(f *FlowState) string {
-	var b keyBuilder
-	if c.writeFlowCacheKey(&b, f.reference, f.declaredType, f.initialType, f.flowContainer) {
+	b := newKeyBuilder()
+	if c.writeFlowCacheKey(b, f.reference, f.declaredType, f.initialType, f.flowContainer) {
 		return b.String()
 	}
 	return "?" // Reference isn't a dotted name
