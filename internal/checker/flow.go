@@ -1631,14 +1631,14 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 		}
 		fallthrough
 	case ast.KindThisKeyword:
-		b.WriteByte(':')
+		b.writeByte(':')
 		b.writeType(declaredType)
 		if initialType != declaredType {
-			b.WriteByte('=')
+			b.writeByte('=')
 			b.writeType(initialType)
 		}
 		if flowContainer != nil {
-			b.WriteByte('@')
+			b.writeByte('@')
 			b.writeNode(flowContainer)
 		}
 		return true
@@ -1648,16 +1648,16 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 		if !c.writeFlowCacheKey(b, node.AsQualifiedName().Left, declaredType, initialType, flowContainer) {
 			return false
 		}
-		b.WriteByte('.')
-		b.WriteString(node.AsQualifiedName().Right.Text())
+		b.writeByte('.')
+		b.writeString(node.AsQualifiedName().Right.Text())
 		return true
 	case ast.KindPropertyAccessExpression, ast.KindElementAccessExpression:
 		if propName, ok := c.getAccessedPropertyName(node); ok {
 			if !c.writeFlowCacheKey(b, node.Expression(), declaredType, initialType, flowContainer) {
 				return false
 			}
-			b.WriteByte('.')
-			b.WriteString(propName)
+			b.writeByte('.')
+			b.writeString(propName)
 			return true
 		}
 		if ast.IsElementAccessExpression(node) && ast.IsIdentifier(node.AsElementAccessExpression().ArgumentExpression) {
@@ -1666,7 +1666,7 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 				if !c.writeFlowCacheKey(b, node.Expression(), declaredType, initialType, flowContainer) {
 					return false
 				}
-				b.WriteString(".@")
+				b.writeString(".@")
 				b.writeSymbol(symbol)
 				return true
 			}
@@ -1674,7 +1674,7 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 	case ast.KindObjectBindingPattern, ast.KindArrayBindingPattern, ast.KindFunctionDeclaration,
 		ast.KindFunctionExpression, ast.KindArrowFunction, ast.KindMethodDeclaration:
 		b.writeNode(node)
-		b.WriteByte('#')
+		b.writeByte('#')
 		b.writeType(declaredType)
 		return true
 	}
