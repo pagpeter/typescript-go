@@ -1627,19 +1627,19 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 			if symbol == c.unknownSymbol {
 				return false
 			}
-			b.WriteSymbol(symbol)
+			b.writeSymbol(symbol)
 		}
 		fallthrough
 	case ast.KindThisKeyword:
 		b.WriteByte(':')
-		b.WriteType(declaredType)
+		b.writeType(declaredType)
 		if initialType != declaredType {
 			b.WriteByte('=')
-			b.WriteType(initialType)
+			b.writeType(initialType)
 		}
 		if flowContainer != nil {
 			b.WriteByte('@')
-			b.WriteNode(flowContainer)
+			b.writeNode(flowContainer)
 		}
 		return true
 	case ast.KindNonNullExpression, ast.KindParenthesizedExpression:
@@ -1667,15 +1667,15 @@ func (c *Checker) writeFlowCacheKey(b *keyBuilder, node *ast.Node, declaredType 
 					return false
 				}
 				b.WriteString(".@")
-				b.WriteSymbol(symbol)
+				b.writeSymbol(symbol)
 				return true
 			}
 		}
 	case ast.KindObjectBindingPattern, ast.KindArrayBindingPattern, ast.KindFunctionDeclaration,
 		ast.KindFunctionExpression, ast.KindArrowFunction, ast.KindMethodDeclaration:
-		b.WriteNode(node)
+		b.writeNode(node)
 		b.WriteByte('#')
-		b.WriteType(declaredType)
+		b.writeType(declaredType)
 		return true
 	}
 	return false
