@@ -89,8 +89,6 @@ func newParser() *Parser {
 	return res
 }
 
-var viableKeywordSuggestions = scanner.GetViableKeywordSuggestions()
-
 var parserPool = sync.Pool{
 	New: func() any {
 		return newParser()
@@ -1928,7 +1926,7 @@ func (p *Parser) parseErrorForMissingSemicolonAfter(node *ast.Node) {
 		return
 	}
 	// The user alternatively might have misspelled or forgotten to add a space after a common keyword.
-	suggestion := core.GetSpellingSuggestion(expressionText, viableKeywordSuggestions, func(s string) string { return s })
+	suggestion := core.GetSpellingSuggestion(expressionText, scanner.GetViableKeywordSuggestions(), func(s string) string { return s })
 	if suggestion == "" {
 		suggestion = getSpaceSuggestion(expressionText)
 	}
@@ -1945,7 +1943,7 @@ func (p *Parser) parseErrorForMissingSemicolonAfter(node *ast.Node) {
 }
 
 func getSpaceSuggestion(expressionText string) string {
-	for _, keyword := range viableKeywordSuggestions {
+	for _, keyword := range scanner.GetViableKeywordSuggestions() {
 		if len(expressionText) > len(keyword)+2 && strings.HasPrefix(expressionText, keyword) {
 			return keyword + " " + expressionText[len(keyword):]
 		}
