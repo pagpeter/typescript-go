@@ -15,7 +15,6 @@ function getNodes(): A[] {
   while (current !== null) {
     let firstChild = null;
 
-    // If the following if block is commented out, then current TS also shows an error
     if (out.length) {
       current = current.next;
       continue;
