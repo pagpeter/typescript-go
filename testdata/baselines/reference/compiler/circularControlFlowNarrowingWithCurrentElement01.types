@@ -1,6 +1,6 @@
-//// [tests/cases/compiler/controlFlowWhileLoopWithContinue.ts] ////
+//// [tests/cases/compiler/circularControlFlowNarrowingWithCurrentElement01.ts] ////
 
-=== controlFlowWhileLoopWithContinue.ts ===
+=== circularControlFlowNarrowingWithCurrentElement01.ts ===
 class A {
 >A : A
 
@@ -31,7 +31,6 @@ function getNodes(): A[] {
     let firstChild = null;
 >firstChild : any
 
-    // If the following if block is commented out, then current TS also shows an error
     if (out.length) {
 >out.length : number
 >out : A[]
