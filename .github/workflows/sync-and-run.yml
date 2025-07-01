@@ -35,4 +35,6 @@ jobs:
 
       - name: Push changes
         run: |
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "Auto-sync and transform from upstream"
           git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/pagpeter/typescript-go.git
