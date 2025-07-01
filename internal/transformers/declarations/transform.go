@@ -895,15 +895,48 @@ func (tx *DeclarationTransformer) visitDeclarationStatements(input *ast.Node) *a
 			tx.resultHasExternalModuleIndicator = true
 		}
 		tx.resultHasScopeMarker = true
+		
+		exportDecl := input.AsExportDeclaration()
+		
+		// Check if we need to generate declare statements for exported symbols
+		var declareStatements []*ast.Node
+		if exportDecl.ExportClause != nil && exportDecl.ExportClause.Kind == ast.KindNamedExports && exportDecl.ModuleSpecifier == nil {
+			// This is an export like `export { bar }` without a module specifier
+			namedExports := exportDecl.ExportClause.AsNamedExports()
+			for _, element := range namedExports.Elements.Nodes {
+				exportSpecifier := element.AsExportSpecifier()
+				localName := exportSpecifier.Name
+				if localName.Kind == ast.KindIdentifier {
+					// Get the symbol for this local name
+					symbol := tx.resolver.GetSymbolAtLocation(localName)
+					if symbol != nil && tx.symbolNeedsDeclaration(symbol, localName) {
+						// Create a declare const statement for this symbol
+						declareStmt := tx.createDeclareConstStatement(localName.AsIdentifier(), symbol)
+						if declareStmt != nil {
+							declareStatements = append(declareStatements, declareStmt)
+						}
+					}
+				}
+			}
+		}
+		
 		// Rewrite external module names if necessary
-		return tx.Factory().UpdateExportDeclaration(
-			input.AsExportDeclaration(),
+		updatedExport := tx.Factory().UpdateExportDeclaration(
+			exportDecl,
 			input.Modifiers(),
 			input.IsTypeOnly(),
-			input.AsExportDeclaration().ExportClause,
-			tx.rewriteModuleSpecifier(input, input.AsExportDeclaration().ModuleSpecifier),
-			tx.tryGetResolutionModeOverride(input.AsExportDeclaration().Attributes),
+			exportDecl.ExportClause,
+			tx.rewriteModuleSpecifier(input, exportDecl.ModuleSpecifier),
+			tx.tryGetResolutionModeOverride(exportDecl.Attributes),
 		)
+		
+		// If we have declare statements, return them along with the export
+		if len(declareStatements) > 0 {
+			allStatements := append(declareStatements, updatedExport)
+			return tx.Factory().NewSyntaxList(allStatements)
+		}
+		
+		return updatedExport
 	case ast.KindExportAssignment, ast.KindJSExportAssignment:
 		if ast.IsSourceFile(input.Parent) {
 			tx.resultHasExternalModuleIndicator = true
