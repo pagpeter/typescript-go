@@ -1,0 +1,38 @@
+name: Sync Fork and Run Command
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: # Allow manual triggering too
+
+jobs:
+  sync-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the fork
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false # Use PAT instead
+
+      - name: Set up Git config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/microsoft/typescript-go.git
+          git fetch upstream
+          git merge upstream/main --allow-unrelated-histories -m "Sync with upstream"
+          git push origin main
+
+      - name: Run custom command
+        run: |
+          echo "🔧 Running custom command!"
+          # Replace this with your actual command
+          ./externalize.sh
+
+      - name: Push changes
+        run: |
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/pagpeter/typescript-go.git
