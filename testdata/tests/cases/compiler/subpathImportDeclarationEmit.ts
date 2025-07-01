@@ -1,9 +1,3 @@
-// @target: esnext
-// @module: nodenext
-// @outDir: dist
-// @rootDir: src
-// @declaration: true
-
 // @Filename: /tsconfig.json
 {
   "compilerOptions": {

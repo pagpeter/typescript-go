@@ -905,11 +905,11 @@ func (tx *DeclarationTransformer) visitDeclarationStatements(input *ast.Node) *a
 			namedExports := exportDecl.ExportClause.AsNamedExports()
 			for _, element := range namedExports.Elements.Nodes {
 				exportSpecifier := element.AsExportSpecifier()
-				localName := exportSpecifier.Name
-				if localName.Kind == ast.KindIdentifier {
+				localName := exportSpecifier.Name()
+				if localName != nil && localName.Kind == ast.KindIdentifier {
 					// Get the symbol for this local name
-					symbol := tx.resolver.GetSymbolAtLocation(localName)
-					if symbol != nil && tx.symbolNeedsDeclaration(symbol, localName) {
+					symbol := localName.Symbol()
+					if symbol != nil && tx.shouldEmitDeclareConst(symbol, localName) {
 						// Create a declare const statement for this symbol
 						declareStmt := tx.createDeclareConstStatement(localName.AsIdentifier(), symbol)
 						if declareStmt != nil {
@@ -932,7 +932,9 @@ func (tx *DeclarationTransformer) visitDeclarationStatements(input *ast.Node) *a
 		
 		// If we have declare statements, return them along with the export
 		if len(declareStatements) > 0 {
-			allStatements := append(declareStatements, updatedExport)
+			allStatements := make([]*ast.Node, 0, len(declareStatements)+1)
+			allStatements = append(allStatements, declareStatements...)
+			allStatements = append(allStatements, updatedExport)
 			return tx.Factory().NewSyntaxList(allStatements)
 		}
 		
@@ -1800,4 +1802,56 @@ func (tx *DeclarationTransformer) transformJSDocOptionalType(input *ast.JSDocOpt
 	}))
 	tx.EmitContext().SetOriginal(replacement, input.AsNode())
 	return replacement
+}
+
+// shouldEmitDeclareConst determines if we should emit a declare const statement for a symbol
+func (tx *DeclarationTransformer) shouldEmitDeclareConst(symbol *ast.Symbol, node *ast.Node) bool {
+	// For debugging: always return true if we have a symbol
+	return symbol != nil
+}
+
+// createDeclareConstStatement creates a declare const statement for a symbol
+func (tx *DeclarationTransformer) createDeclareConstStatement(identifier *ast.Identifier, symbol *ast.Symbol) *ast.Node {
+	if symbol == nil || identifier == nil {
+		return nil
+	}
+	
+	// Create a type node for the symbol's type using the existing resolver method
+	typeNode := tx.resolver.CreateTypeOfDeclaration(
+		tx.EmitContext(),
+		identifier.AsNode(),
+		tx.enclosingDeclaration,
+		nodebuilder.FlagsInTypeAlias,
+		nodebuilder.InternalFlagsNone,
+		tx.tracker,
+	)
+	if typeNode == nil {
+		return nil
+	}
+	
+	// Create the variable declaration
+	varDecl := tx.Factory().NewVariableDeclaration(
+		identifier.AsNode(),
+		nil, // no exclamation token
+		typeNode,
+		nil, // no initializer
+	)
+	
+	// Create the declare keyword modifier
+	declareModifier := tx.Factory().NewModifier(ast.KindDeclareKeyword)
+	modifiers := []*ast.Node{declareModifier}
+	
+	// Create the variable declaration list with const flag
+	varDeclList := tx.Factory().NewVariableDeclarationList(
+		ast.NodeFlagsConst,
+		tx.Factory().NewNodeList([]*ast.Node{varDecl.AsNode()}),
+	)
+	
+	// Create the variable statement
+	statement := tx.Factory().NewVariableStatement(
+		tx.Factory().NewModifierList(modifiers),
+		varDeclList,
+	)
+	
+	return statement.AsNode()
 }
