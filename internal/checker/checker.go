@@ -630,9 +630,6 @@ type Checker struct {
 	intersectionTypes                           map[string]*Type
 	diagnostics                                 ast.DiagnosticsCollection
 	suggestionDiagnostics                       ast.DiagnosticsCollection
-	symbolPool                                  core.Pool[ast.Symbol]
-	signaturePool                               core.Pool[Signature]
-	indexInfoPool                               core.Pool[IndexInfo]
 	mergedSymbols                               map[*ast.Symbol]*ast.Symbol
 	factory                                     ast.NodeFactory
 	nodeLinks                                   core.LinkStore[*ast.Node, NodeLinks]
@@ -13401,7 +13398,7 @@ func (c *Checker) hasParseDiagnostics(sourceFile *ast.SourceFile) bool {
 
 func (c *Checker) newSymbol(flags ast.SymbolFlags, name string) *ast.Symbol {
 	c.SymbolCount++
-	result := c.symbolPool.New()
+	result := &ast.Symbol{}
 	result.Flags = flags | ast.SymbolFlagsTransient
 	result.Name = name
 	return result
@@ -24159,7 +24156,7 @@ func (c *Checker) newSubstitutionType(baseType *Type, constraint *Type) *Type {
 }
 
 func (c *Checker) newSignature(flags SignatureFlags, declaration *ast.Node, typeParameters []*Type, thisParameter *ast.Symbol, parameters []*ast.Symbol, resolvedReturnType *Type, resolvedTypePredicate *TypePredicate, minArgumentCount int) *Signature {
-	sig := c.signaturePool.New()
+	sig := &Signature{}
 	sig.flags = flags
 	sig.declaration = declaration
 	sig.typeParameters = typeParameters
@@ -24173,7 +24170,7 @@ func (c *Checker) newSignature(flags SignatureFlags, declaration *ast.Node, type
 }
 
 func (c *Checker) newIndexInfo(keyType *Type, valueType *Type, isReadonly bool, declaration *ast.Node) *IndexInfo {
-	info := c.indexInfoPool.New()
+	info := &IndexInfo{}
 	info.keyType = keyType
 	info.valueType = valueType
 	info.isReadonly = isReadonly

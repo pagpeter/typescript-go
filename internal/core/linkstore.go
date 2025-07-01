@@ -4,7 +4,6 @@ package core
 
 type LinkStore[K comparable, V any] struct {
 	entries map[K]*V
-	pool    Pool[V]
 }
 
 func (s *LinkStore[K, V]) Get(key K) *V {
@@ -15,7 +14,7 @@ func (s *LinkStore[K, V]) Get(key K) *V {
 	if s.entries == nil {
 		s.entries = make(map[K]*V)
 	}
-	value = s.pool.New()
+	value = new(V)
 	s.entries[key] = value
 	return value
 }

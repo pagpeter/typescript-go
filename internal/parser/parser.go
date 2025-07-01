@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strings"
 	"sync"
 
@@ -69,8 +70,6 @@ type Parser struct {
 	identifiers             map[string]string
 	identifierCount         int
 	notParenthesizedArrow   collections.Set[int]
-	nodeSlicePool           core.Pool[*ast.Node]
-	stringSlicePool         core.Pool[string]
 	jsdocCache              map[*ast.Node][]*ast.Node
 	possibleAwaitSpans      []int
 	jsdocCommentsSpace      []string
@@ -502,8 +501,7 @@ func (p *Parser) parseListIndex(kind ParsingContext, parseElement func(p *Parser
 		}
 	}
 	p.parsingContexts = saveParsingContexts
-	slice := p.nodeSlicePool.NewSlice(len(list))
-	copy(slice, list)
+	slice := cloneSliceOrNil(list)
 	return p.newNodeList(core.NewTextRange(pos, p.nodePos()), slice)
 }
 
@@ -566,9 +564,15 @@ func (p *Parser) parseDelimitedList(kind ParsingContext, parseElement func(p *Pa
 		}
 	}
 	p.parsingContexts = saveParsingContexts
-	slice := p.nodeSlicePool.NewSlice(len(list))
-	copy(slice, list)
+	slice := cloneSliceOrNil(list)
 	return p.newNodeList(core.NewTextRange(pos, p.nodePos()), slice)
+}
+
+func cloneSliceOrNil[T any](slice []T) []T {
+	if len(slice) == 0 {
+		return nil
+	}
+	return slices.Clone(slice)
 }
 
 // Return a non-nil (but possibly empty) NodeList if parsing was successful, or nil if opening token wasn't found
@@ -2102,7 +2106,7 @@ func (p *Parser) parseModuleOrNamespaceDeclaration(pos int, hasJSDoc bool, modif
 		implicitExport := p.factory.NewModifier(ast.KindExportKeyword)
 		implicitExport.Loc = core.NewTextRange(p.nodePos(), p.nodePos())
 		implicitExport.Flags = ast.NodeFlagsReparsed
-		implicitModifiers := p.newModifierList(implicitExport.Loc, p.nodeSlicePool.NewSlice1(implicitExport))
+		implicitModifiers := p.newModifierList(implicitExport.Loc, []*ast.Node{implicitExport})
 		body = p.parseModuleOrNamespaceDeclaration(p.nodePos(), false /*hasJSDoc*/, implicitModifiers, true /*nested*/, keyword)
 	} else {
 		body = p.parseModuleBlock()
@@ -2528,7 +2532,7 @@ func (p *Parser) parseUnionOrIntersectionType(operator ast.Kind, parseConstituen
 		typeNode = parseConstituentType(p)
 	}
 	if p.token == operator || hasLeadingOperator {
-		types := p.nodeSlicePool.NewSlice(2)[:1]
+		types := make([]*ast.TypeNode, 1, 2)
 		types[0] = typeNode
 		for p.parseOptional(operator) {
 			types = append(types, p.parseFunctionOrConstructorTypeToError(isUnionType, parseConstituentType))
@@ -3743,7 +3747,7 @@ func (p *Parser) parseModifiersForConstructorType() *ast.ModifierList {
 		modifier := p.factory.NewModifier(p.token)
 		p.nextToken()
 		p.finishNode(modifier, pos)
-		return p.newModifierList(modifier.Loc, p.nodeSlicePool.NewSlice1(modifier))
+		return p.newModifierList(modifier.Loc, []*ast.Node{modifier})
 	}
 	return nil
 }
@@ -3835,8 +3839,7 @@ func (p *Parser) parseModifiersEx(allowDecorators bool, permitConstAsModifier bo
 		}
 	}
 	if len(list) != 0 {
-		nodes := p.nodeSlicePool.NewSlice(len(list))
-		copy(nodes, list)
+		nodes := cloneSliceOrNil(list)
 		return p.newModifierList(core.NewTextRange(pos, p.nodePos()), nodes)
 	}
 	return nil
@@ -4392,7 +4395,7 @@ func (p *Parser) parseModifiersForArrowFunction() *ast.ModifierList {
 		p.nextToken()
 		modifier := p.factory.NewModifier(ast.KindAsyncKeyword)
 		p.finishNode(modifier, pos)
-		return p.newModifierList(modifier.Loc, p.nodeSlicePool.NewSlice1(modifier))
+		return p.newModifierList(modifier.Loc, []*ast.Node{modifier})
 	}
 	return nil
 }

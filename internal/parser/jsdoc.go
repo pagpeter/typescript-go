@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -40,7 +41,7 @@ func (p *Parser) withJSDoc(node *ast.Node, hasJSDoc bool) []*ast.Node {
 	p.hasDeprecatedTag = false
 	ranges := getJSDocCommentRanges(&p.factory, p.jsdocCommentRangesSpace, node, p.sourceText)
 	p.jsdocCommentRangesSpace = ranges[:0]
-	jsdoc := p.nodeSlicePool.NewSlice(len(ranges))[:0]
+	jsdoc := make([]*ast.Node, 0, len(ranges))
 	pos := node.Pos()
 	for _, comment := range ranges {
 		if parsed := p.parseJSDocComment(node, comment.Pos(), comment.End(), pos); parsed != nil {
@@ -165,11 +166,11 @@ func (p *Parser) parseJSDocComment(parent *ast.Node, start int, end int, fullSta
 func (p *Parser) parseJSDocCommentWorker(start int, end int, fullStart int, indent int) *ast.Node {
 	// Initially we can parse out a tag.  We also have seen a starting asterisk.
 	// This is so that /** * @type */ doesn't parse.
-	tags := p.nodeSlicePool.NewSlice(1)[:0]
+	tags := make([]*ast.Node, 0, 1)
 	tagsPos := -1
 	tagsEnd := -1
 	state := jsdocStateSawAsterisk
-	commentParts := p.nodeSlicePool.NewSlice(1)[:0]
+	commentParts := make([]*ast.Node, 0, 1)
 	comments := p.jsdocCommentsSpace
 	commentsPos := -1
 	linkEnd := start
@@ -257,7 +258,7 @@ loop:
 				if linkEnd == start {
 					comments = removeLeadingNewlines(comments)
 				}
-				jsdocText := p.factory.NewJSDocText(p.stringSlicePool.Clone(comments))
+				jsdocText := p.factory.NewJSDocText(slices.Clone(comments))
 				p.finishNodeWithEnd(jsdocText, linkEnd, commentEnd)
 				commentParts = append(commentParts, jsdocText, link)
 				comments = comments[:0]
@@ -285,7 +286,7 @@ loop:
 	}
 
 	if len(comments) > 0 {
-		jsdocText := p.factory.NewJSDocText(p.stringSlicePool.Clone(comments))
+		jsdocText := p.factory.NewJSDocText(slices.Clone(comments))
 		p.finishNodeWithEnd(jsdocText, linkEnd, commentsPos)
 		commentParts = append(commentParts, jsdocText)
 	}
@@ -529,7 +530,7 @@ loop:
 			linkStart := p.scanner.TokenEnd() - 1
 			link := p.parseJSDocLink(linkStart)
 			if link != nil {
-				text := p.factory.NewJSDocText(p.stringSlicePool.Clone(comments))
+				text := p.factory.NewJSDocText(slices.Clone(comments))
 				var commentStart int
 				if linkEnd > -1 {
 					commentStart = linkEnd
@@ -590,7 +591,7 @@ loop:
 		} else {
 			commentStart = commentsPos
 		}
-		text := p.factory.NewJSDocText(p.stringSlicePool.Clone(comments))
+		text := p.factory.NewJSDocText(slices.Clone(comments))
 		p.finishNode(text, commentStart)
 		parts = append(parts, text)
 	}

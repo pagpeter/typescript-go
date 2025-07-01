@@ -136,8 +136,6 @@ type Printer struct {
 	inExtends                         bool // whether we are emitting the `extends` clause of a ConditionalType or InferType
 	nameGenerator                     NameGenerator
 	makeFileLevelOptimisticUniqueName func(string) string
-	commentStatePool                  core.Pool[commentState]
-	sourceMapStatePool                core.Pool[sourceMapState]
 }
 
 type detachedCommentsInfo struct {
@@ -4995,9 +4993,7 @@ func (p *Printer) emitCommentsBeforeNode(node *ast.Node) *commentState {
 		p.commentsDisabled = true
 	}
 
-	c := p.commentStatePool.New()
-	*c = commentState{emitFlags, commentRange, containerPos, containerEnd, declarationListContainerEnd}
-	return c
+	return &commentState{emitFlags, commentRange, containerPos, containerEnd, declarationListContainerEnd}
 }
 
 func (p *Printer) emitCommentsAfterNode(node *ast.Node, state *commentState) {
@@ -5050,7 +5046,7 @@ func (p *Printer) emitCommentsBeforeToken(token ast.Kind, pos int, contextNode *
 		p.decreaseIndentIf(needsIndent)
 	}
 
-	return p.commentStatePool.New(), pos
+	return &commentState{}, pos
 }
 
 func (p *Printer) emitCommentsAfterToken(token ast.Kind, pos int, contextNode *ast.Node, state *commentState) {
@@ -5490,9 +5486,7 @@ func (p *Printer) emitSourceMapsBeforeNode(node *ast.Node) *sourceMapState {
 		p.sourceMapsDisabled = true
 	}
 
-	state := p.sourceMapStatePool.New()
-	*state = sourceMapState{emitFlags, loc, false}
-	return state
+	return &sourceMapState{emitFlags, loc, false}
 }
 
 func (p *Printer) emitSourceMapsAfterNode(node *ast.Node, previousState *sourceMapState) {
@@ -5530,9 +5524,7 @@ func (p *Printer) emitSourceMapsBeforeToken(token ast.Kind, pos int, contextNode
 		}
 	}
 
-	state := p.sourceMapStatePool.New()
-	*state = sourceMapState{emitFlags, loc, hasLoc}
-	return state
+	return &sourceMapState{emitFlags, loc, hasLoc}
 }
 
 func (p *Printer) emitSourceMapsAfterToken(token ast.Kind, pos int, contextNode *ast.Node, previousState *sourceMapState) {

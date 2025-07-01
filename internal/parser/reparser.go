@@ -27,7 +27,7 @@ func (p *Parser) reparseCommonJS(node *ast.Node, jsdoc []*ast.Node) {
 		mod.Flags = p.contextFlags | ast.NodeFlagsReparsed
 		mod.Loc = bin.Loc
 		// TODO: Name can sometimes be a string literal, so downstream code needs to handle this
-		export = p.factory.NewCommonJSExport(p.newModifierList(bin.Loc, p.nodeSlicePool.NewSlice1(mod)), ast.GetElementOrPropertyAccessName(bin.Left), nil /*typeNode*/, bin.Right)
+		export = p.factory.NewCommonJSExport(p.newModifierList(bin.Loc, []*ast.Node{mod}), ast.GetElementOrPropertyAccessName(bin.Left), nil /*typeNode*/, bin.Right)
 	}
 	if export != nil {
 		export.Flags = ast.NodeFlagsReparsed
@@ -71,7 +71,7 @@ func (p *Parser) reparseUnhosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Nod
 		export := p.factory.NewModifier(ast.KindExportKeyword)
 		export.Loc = tag.Loc
 		export.Flags = p.contextFlags | ast.NodeFlagsReparsed
-		modifiers := p.newModifierList(export.Loc, p.nodeSlicePool.NewSlice1(export))
+		modifiers := p.newModifierList(export.Loc, []*ast.Node{export})
 
 		typeAlias := p.factory.NewJSTypeAliasDeclaration(modifiers, tag.AsJSDocTypedefTag().Name(), nil, nil)
 		typeAlias.AsTypeAliasDeclaration().TypeParameters = p.gatherTypeParameters(jsDoc, tag, typeAlias)
@@ -98,7 +98,7 @@ func (p *Parser) reparseUnhosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Nod
 		export := p.factory.NewModifier(ast.KindExportKeyword)
 		export.Loc = tag.Loc
 		export.Flags = p.contextFlags | ast.NodeFlagsReparsed
-		modifiers := p.newModifierList(export.Loc, p.nodeSlicePool.NewSlice1(export))
+		modifiers := p.newModifierList(export.Loc, []*ast.Node{export})
 		functionType := p.reparseJSDocSignature(callbackTag.TypeExpression, tag, jsDoc, tag)
 
 		typeAlias := p.factory.NewJSTypeAliasDeclaration(modifiers, callbackTag.FullName, nil, functionType)
@@ -145,7 +145,7 @@ func (p *Parser) reparseJSDocSignature(jsSignature *ast.Node, fun *ast.Node, jsD
 	if tag.Kind != ast.KindJSDocCallbackTag {
 		signature.FunctionLikeData().TypeParameters = p.gatherTypeParameters(jsDoc, tag, signature)
 	}
-	parameters := p.nodeSlicePool.NewSlice(0)
+	var parameters []*ast.Node
 	for _, param := range jsSignature.Parameters() {
 		var parameter *ast.Node
 		if param.Kind == ast.KindJSDocThisTag {
@@ -187,7 +187,7 @@ func (p *Parser) reparseJSDocTypeLiteral(t *ast.TypeNode) *ast.Node {
 	}
 	if t.Kind == ast.KindJSDocTypeLiteral {
 		isArrayType := t.AsJSDocTypeLiteral().IsArrayType
-		properties := p.nodeSlicePool.NewSlice(0)
+		var properties []*ast.Node
 		for _, prop := range t.AsJSDocTypeLiteral().JSDocPropertyTags {
 			jsprop := prop.AsJSDocParameterOrPropertyTag()
 			name := prop.Name()
@@ -219,7 +219,7 @@ func (p *Parser) reparseJSDocTypeLiteral(t *ast.TypeNode) *ast.Node {
 }
 
 func (p *Parser) gatherTypeParameters(j *ast.Node, tagWithTypeParameters *ast.Node, host *ast.Node) *ast.NodeList {
-	typeParameters := p.nodeSlicePool.NewSlice(0)
+	var typeParameters []*ast.Node
 	pos := -1
 	endPos := -1
 	firstTemplate := true
@@ -397,7 +397,7 @@ func (p *Parser) reparseHosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Node)
 				thisParam.Flags = p.contextFlags | ast.NodeFlagsReparsed
 				p.finishReparsedNode(thisParam)
 
-				newParams := p.nodeSlicePool.NewSlice(len(params) + 1)
+				newParams := make([]*ast.Node, len(params)+1)
 				newParams[0] = thisParam
 				for i, param := range params {
 					newParams[i+1] = param
@@ -439,8 +439,7 @@ func (p *Parser) reparseHosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Node)
 			var nodes []*ast.Node
 			var loc core.TextRange
 			if parent.Modifiers() == nil {
-				nodes = p.nodeSlicePool.NewSlice(1)
-				nodes[0] = modifier
+				nodes = []*ast.Node{modifier}
 				loc = tag.Loc
 			} else {
 				nodes = append(parent.Modifiers().Nodes, modifier)
@@ -463,7 +462,7 @@ func (p *Parser) reparseHosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Node)
 				}
 			}
 			implementsTag.ClassName.Flags |= ast.NodeFlagsReparsed
-			typesList := p.newNodeList(implementsTag.ClassName.Loc, p.nodeSlicePool.NewSlice1(implementsTag.ClassName))
+			typesList := p.newNodeList(implementsTag.ClassName.Loc, []*ast.Node{implementsTag.ClassName})
 
 			heritageClause := p.factory.NewHeritageClause(ast.KindImplementsKeyword, typesList)
 			heritageClause.Loc = implementsTag.ClassName.Loc
@@ -471,7 +470,7 @@ func (p *Parser) reparseHosted(tag *ast.Node, parent *ast.Node, jsDoc *ast.Node)
 			p.finishReparsedNode(heritageClause)
 
 			if class.HeritageClauses == nil {
-				heritageClauses := p.newNodeList(implementsTag.ClassName.Loc, p.nodeSlicePool.NewSlice1(heritageClause))
+				heritageClauses := p.newNodeList(implementsTag.ClassName.Loc, []*ast.Node{heritageClause})
 				class.HeritageClauses = heritageClauses
 			} else {
 				class.HeritageClauses.Nodes = append(class.HeritageClauses.Nodes, heritageClause)

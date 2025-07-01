@@ -48,7 +48,6 @@ type MappingsDecoder struct {
 	sourceCharacter    int
 	nameIndex          NameIndex
 	error              error
-	mappingPool        core.Pool[Mapping]
 }
 
 func DecodeMappings(mappings string) *MappingsDecoder {
@@ -164,7 +163,7 @@ func (d *MappingsDecoder) Next() (value *Mapping, done bool) {
 }
 
 func (d *MappingsDecoder) captureMapping(hasSource bool, hasName bool) *Mapping {
-	mapping := d.mappingPool.New()
+	mapping := &Mapping{}
 	mapping.GeneratedLine = d.generatedLine
 	mapping.GeneratedCharacter = d.generatedCharacter
 	mapping.SourceIndex = core.IfElse(hasSource, d.sourceIndex, MissingSource)

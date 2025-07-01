@@ -68,10 +68,6 @@ type Binder struct {
 	seenParseError         bool
 	symbolCount            int
 	classifiableNames      collections.Set[string]
-	symbolPool             core.Pool[ast.Symbol]
-	flowNodePool           core.Pool[ast.FlowNode]
-	flowListPool           core.Pool[ast.FlowList]
-	singleDeclarationsPool core.Pool[*ast.Node]
 }
 
 func (b *Binder) options() core.SourceFileAffectingCompilerOptions {
@@ -130,7 +126,7 @@ func bindSourceFile(file *ast.SourceFile) {
 
 func (b *Binder) newSymbol(flags ast.SymbolFlags, name string) *ast.Symbol {
 	b.symbolCount++
-	result := b.symbolPool.New()
+	result := &ast.Symbol{}
 	result.Flags = flags
 	result.Name = name
 	return result
@@ -454,7 +450,7 @@ func (b *Binder) declareSymbolAndAddToSymbolTable(node *ast.Node, symbolFlags as
 }
 
 func (b *Binder) newFlowNode(flags ast.FlowFlags) *ast.FlowNode {
-	result := b.flowNodePool.New()
+	result := &ast.FlowNode{}
 	result.Flags = flags
 	return result
 }
@@ -520,7 +516,7 @@ func (b *Binder) createFlowCall(antecedent *ast.FlowNode, node *ast.Node) *ast.F
 }
 
 func (b *Binder) newFlowList(head *ast.FlowNode, tail *ast.FlowList) *ast.FlowList {
-	result := b.flowListPool.New()
+	result := &ast.FlowList{}
 	result.Flow = head
 	result.Next = tail
 	return result
@@ -534,7 +530,7 @@ func (b *Binder) combineFlowLists(head *ast.FlowList, tail *ast.FlowList) *ast.F
 }
 
 func (b *Binder) newSingleDeclaration(declaration *ast.Node) []*ast.Node {
-	return b.singleDeclarationsPool.NewSlice1(declaration)
+	return []*ast.Node{declaration}
 }
 
 func setFlowNodeReferenced(flow *ast.FlowNode) {
